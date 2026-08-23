@@ -1,8 +1,7 @@
 ﻿using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
-using M1Mentor.Utilities.Exceptions.Common;
-using M1Mentor.Utilities.Services.Contracts;
+using Utilities.Exceptions.Common;
 using Utilities.Services.Contracts;
 using static Utilities.Constants.RegisterMode;
 

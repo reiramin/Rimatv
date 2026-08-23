@@ -1,5 +1,5 @@
-﻿using M1Mentor.Utilities.Exceptions.Common;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
+using Utilities.Exceptions.Common;
 
 /// <summary>
 /// Validates that the decorated property is a valid value of its enum type.

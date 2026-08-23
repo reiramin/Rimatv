@@ -3,8 +3,6 @@ using iptv.Domain.Repositories.Contracts;
 using iptv.Services._User.Contracts;
 using iptv.Services._User.DTOs.Results;
 using iptv.Services._User.DTOs.Updates;
-using M1Mentor.Utilities.Exceptions.Common;
-using M1Mentor.Utilities.Services.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
@@ -14,6 +12,7 @@ using Utilities._Permissions.Utilities;
 using Utilities.Constants;
 using Utilities.Enums;
 using Utilities.Exceptions;
+using Utilities.Exceptions.Common;
 using Utilities.Extensions;
 using Utilities.Models.Storages;
 using Utilities.MongoDatabase.Extensions;
@@ -70,8 +69,8 @@ namespace iptv.Services._User
                 !string.IsNullOrWhiteSpace(update.refresh_token),
                 !string.IsNullOrWhiteSpace(update.client_id),
                 !string.IsNullOrWhiteSpace(update.client_secret));
-            
-            
+
+
             if (string.IsNullOrWhiteSpace(update.access_token))
                 throw new BadRequestException(
                     "Access token is required to identify the account for renewal. Please log in again.");
@@ -104,8 +103,8 @@ namespace iptv.Services._User
 
             if (!_passwordService.Verify(update.refresh_token, user.RefreshTokenHash))
                 throw new AuthorizationException("Invalid refresh token.");
-            
-            
+
+
             var newTokenResult = _jwtService.Generate(BuildClaims(user));
             newTokenResult.refresh_token = update.refresh_token;
 
@@ -114,7 +113,6 @@ namespace iptv.Services._User
 
         public async Task<bool> LogoutAsync(string publicKey)
         {
-           
             var newSecurityStamp = Guid.NewGuid().ToString("N");
 
             var filter = Builders<User>.Filter.Eq(u => u.PublicKey, publicKey);
@@ -193,8 +191,13 @@ namespace iptv.Services._User
         {
             var user = await _userRepository.GetUserByPublicKeyAsync(update.PublicKey);
             user.PasswordHash = _passwordService.Hash(update.Password);
+            user.SecurityStamp = Guid.NewGuid().ToString("N");
+            user.RefreshTokenHash = null;
+            user.RefreshTokenExpiresAt = null;
 
             await _userRepository.ReplaceOneAsync(user);
+
+            _securityStampStorage.UpdateSecurityStamp(UserType.User.ToDisplay(), user.PublicKey, user.SecurityStamp);
 
             return true;
         }
@@ -206,9 +209,20 @@ namespace iptv.Services._User
             user.State = update.ShouldArchive
                 ? UserState.Archived
                 : UserState.Active;
+            user.SecurityStamp = Guid.NewGuid().ToString("N");
+            user.RefreshTokenHash = null;
+            user.RefreshTokenExpiresAt = null;
 
-            var updateDef = Builders<User>.Update.Set(u => u.State, user.State);
+            var updateDef = Builders<User>.Update
+                .Set(u => u.State, user.State)
+                .Set(u => u.SecurityStamp, user.SecurityStamp)
+                .Set(u => u.RefreshTokenHash, user.RefreshTokenHash)
+                .Set(u => u.RefreshTokenExpiresAt, user.RefreshTokenExpiresAt);
+
             await _userRepository.FindOneAndUpdateAsync(q => q.PublicKey == update.UserPublicKey, updateDef);
+
+            _securityStampStorage.UpdateSecurityStamp(UserType.User.ToDisplay(), update.UserPublicKey,
+                user.SecurityStamp);
 
             return MapToUserFilteredResult(user);
         }
@@ -216,10 +230,20 @@ namespace iptv.Services._User
         public async Task<UserFilteredResult> BanUserAsync(UserBanUpdate update)
         {
             var user = await _userRepository.GetUserByPublicKeyAsync(update.PublicKey);
-            user.State = update.MakeBan ? UserState.Ban : user.State;
+            user.State = update.MakeBan ? UserState.Ban : UserState.Active;
+            user.SecurityStamp = Guid.NewGuid().ToString("N");
+            user.RefreshTokenHash = null;
+            user.RefreshTokenExpiresAt = null;
 
-            var updateDef = Builders<User>.Update.Set(u => u.State, user.State);
+            var updateDef = Builders<User>.Update
+                .Set(u => u.State, user.State)
+                .Set(u => u.SecurityStamp, user.SecurityStamp)
+                .Set(u => u.RefreshTokenHash, user.RefreshTokenHash)
+                .Set(u => u.RefreshTokenExpiresAt, user.RefreshTokenExpiresAt);
+
             await _userRepository.FindOneAndUpdateAsync(q => q.PublicKey == update.PublicKey, updateDef);
+
+            _securityStampStorage.UpdateSecurityStamp(UserType.User.ToDisplay(), update.PublicKey, user.SecurityStamp);
 
             return MapToUserFilteredResult(user);
         }
@@ -237,8 +261,8 @@ namespace iptv.Services._User
         {
             query.WithBase<UserFilteredForAdminResult>();
             var data = await _userRepository.AsQueryable()
-                .Apply(query.Where)
-                .Apply(query.Order)
+                .Apply(query.Where, nameof(UserFilteredForAdminResult))
+                .Apply(query.Order, nameof(UserFilteredForAdminResult))
                 .Select(user => new UserFilteredForAdminResult
                 {
                     CreatedByInfo = user.CreatedByInfo,
@@ -257,7 +281,7 @@ namespace iptv.Services._User
                     EmailAddress = user.EmailAddress,
                     LoginDates = user.LoginDates,
                 })
-                .ExecuteAsync(query);
+                .ExecuteAsync(query, nameof(UserFilteredForAdminResult));
 
             data.Data =
             [
@@ -286,7 +310,13 @@ namespace iptv.Services._User
                 throw new BadRequestException("New password must be different from old password.");
 
             user.PasswordHash = _passwordService.Hash(update.NewPassword);
+            user.SecurityStamp = Guid.NewGuid().ToString("N");
+            user.RefreshTokenHash = null;
+            user.RefreshTokenExpiresAt = null;
+
             await _userRepository.ReplaceOneAsync(user);
+
+            _securityStampStorage.UpdateSecurityStamp(UserType.User.ToDisplay(), user.PublicKey, user.SecurityStamp);
 
             return true;
         }

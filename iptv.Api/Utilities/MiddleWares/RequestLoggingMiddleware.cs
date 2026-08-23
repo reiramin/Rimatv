@@ -2,7 +2,6 @@
 using System.Text.Json;
 using iptv.Services._Log;
 using iptv.Services._Log.DTOs.Updates;
-using M1Mentor.Utilities.Services.Contracts;
 using Utilities.Enums;
 using Utilities.Extensions;
 using Utilities.Services.Contracts;

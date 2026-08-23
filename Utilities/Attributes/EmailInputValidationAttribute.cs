@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
-using M1Mentor.Utilities.Exceptions.Common;
 using Utilities.Enums;
+using Utilities.Exceptions.Common;
 using Utilities.Extensions;
 
 namespace Utilities.Attributes;

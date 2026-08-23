@@ -2,9 +2,6 @@
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Asp.Versioning;
-using M1Mentor.Utilities.Exceptions;
-using M1Mentor.Utilities.Exceptions.Common;
-using M1Mentor.Utilities.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Authorization;
@@ -16,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Utilities.Constants;
 using Utilities.Enums;
 using Utilities.Exceptions;
+using Utilities.Exceptions.Common;
 using Utilities.Extensions;
 using Utilities.Models.Settings;
 using Utilities.MongoDatabase;

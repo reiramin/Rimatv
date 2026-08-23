@@ -1,4 +1,4 @@
-﻿namespace M1Mentor.Utilities.Services.Contracts
+﻿namespace Utilities.Services.Contracts
 {
     public interface ITextService
     {

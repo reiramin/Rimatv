@@ -1,5 +1,4 @@
 ﻿using System.Net;
-using M1Mentor.Utilities.Exceptions.Common;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
@@ -7,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using Utilities.Enums;
+using Utilities.Exceptions.Common;
 using Utilities.Extensions;
 
 namespace Utilities.Middlewares

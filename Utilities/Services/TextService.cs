@@ -1,5 +1,5 @@
 ﻿using System.Text;
-using M1Mentor.Utilities.Services.Contracts;
+using Utilities.Services.Contracts;
 using static Utilities.Constants.RegisterMode;
 
 namespace Utilities.Services

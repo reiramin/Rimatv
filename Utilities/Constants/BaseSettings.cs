@@ -8,7 +8,7 @@
         public string Audience { get; set; }
         public string SignatureKey { get; set; }
         public string EncryptionKey { get; set; }
-        public int ExpiresAfter { get; set; }
+        public int AccessTokenExpiresAfterHours { get; set; }
         public int RefreshTokenExpiresAfterDays { get; set; }
         public Dictionary<string, string> ClientInfo { get; set; }
     }

@@ -3,12 +3,11 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using M1Mentor.Utilities.Exceptions.Common;
-using M1Mentor.Utilities.Services.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Utilities.Constants;
 using Utilities.Enums;
+using Utilities.Exceptions.Common;
 using Utilities.Extensions;
 using Utilities.Services.Contracts;
 
@@ -33,7 +32,7 @@ namespace Utilities.Services
                 Audience = _settings.Audience,
                 IssuedAt = DateTime.UtcNow,
                 NotBefore = DateTime.UtcNow,
-                Expires = DateTime.UtcNow.AddMinutes(_settings.ExpiresAfter),
+                Expires = DateTime.UtcNow.AddHours(_settings.AccessTokenExpiresAfterHours),
                 SigningCredentials = signingCredentials,
                 EncryptingCredentials = encryptingCredentials,
                 Subject = new ClaimsIdentity(claims),

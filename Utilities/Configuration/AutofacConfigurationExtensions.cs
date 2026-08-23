@@ -1,6 +1,5 @@
 ﻿using System.Reflection;
 using Autofac;
-using M1Mentor.Utilities.Services;
 using Microsoft.Extensions.Hosting;
 using Utilities.Services;
 using static Utilities.Constants.RegisterMode;

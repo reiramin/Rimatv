@@ -1,5 +1,5 @@
-﻿using M1Mentor.Utilities.Exceptions.Common;
-using Utilities.Enums;
+﻿using Utilities.Enums;
+using Utilities.Exceptions.Common;
 
 namespace M1Mentor.Utilities.Exceptions
 {

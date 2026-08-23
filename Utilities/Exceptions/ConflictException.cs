@@ -1,6 +1,6 @@
 ﻿using System.Net;
-using M1Mentor.Utilities.Exceptions.Common;
 using Utilities.Enums;
+using Utilities.Exceptions.Common;
 
 namespace Utilities.Exceptions
 {

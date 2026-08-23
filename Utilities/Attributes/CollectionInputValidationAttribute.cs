@@ -1,7 +1,7 @@
 ﻿using System.Collections;
 using System.ComponentModel.DataAnnotations;
-using M1Mentor.Utilities.Exceptions.Common;
 using Utilities.Enums;
+using Utilities.Exceptions.Common;
 using Utilities.Extensions;
 
 namespace Utilities.Attributes;

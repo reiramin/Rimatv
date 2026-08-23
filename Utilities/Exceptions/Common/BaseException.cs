@@ -1,7 +1,7 @@
 ﻿using System.Net;
 using Utilities.Enums;
 
-namespace M1Mentor.Utilities.Exceptions.Common
+namespace Utilities.Exceptions.Common
 {
     public class BaseException : Exception
     {

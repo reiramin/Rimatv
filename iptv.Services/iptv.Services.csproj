@@ -11,6 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="_Common\Contracts\" />
     <Folder Include="_Common\DTOs\Updates\" />
   </ItemGroup>

@@ -1,17 +1,18 @@
-﻿// using M1Mentor.Utilities._Permissions.Contracts;
-// using Microsoft.Extensions.DependencyInjection;
+﻿// using Microsoft.Extensions.DependencyInjection;
 // using Microsoft.Extensions.Hosting;
 // using Microsoft.Extensions.Logging;
-// using static M1Mentor.Utilities.Constants.RegisterMode;
+// using Utilities._Permissions.Constants;
+// using Utilities._Permissions.Contracts;
+// using Utilities.Constants;
 //
 // namespace Utilities._Permissions.BackgroundServices
 // {
 //     public class SyncPermissionsTask(ILogger<SyncPermissionsTask> logger, IServiceProvider serviceProvider)
-//         : IHostedService, IHostedDependency
+//         : IHostedService, RegisterMode.IHostedDependency
 //     {
 //         public async Task StartAsync(CancellationToken cancellationToken)
 //         {
-//             var newPermissions = M1Mentor.Utilities.Permissions.PermissionsList.Where(q => q.IsNew).ToList();
+//             var newPermissions = Permissions.PermissionsList.Where(q => q.IsNew).ToList();
 //
 //             if (newPermissions.Count == 0)
 //                 return;

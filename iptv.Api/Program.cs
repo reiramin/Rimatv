@@ -1,8 +1,8 @@
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
 using iptv.Api.Utilities.Configurations;
-using M1Mentor.Api.Utilities.Configurations;
 using Utilities.Configuration;
+using Utilities.Models.Settings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +18,32 @@ builder.Services.AddMemoryCache();
 
 builder.Services.AddCoreSettings(builder.Configuration);
 builder.Services.AddSettings(builder.Configuration);
+
+// var proxySettings = builder.Configuration
+//     .GetSection(nameof(OutboundProxySettings))
+//     .Get<OutboundProxySettings>() ?? new OutboundProxySettings();
+
+builder.Services.AddHttpClient();
+
+// builder.Services.AddHttpClient("IptvProvider", client => { client.Timeout = TimeSpan.FromSeconds(15); });
+//
+// builder.Services.AddHttpClient("IptvProvider-Proxied", client => { client.Timeout = TimeSpan.FromSeconds(15); })
+//     .ConfigurePrimaryHttpMessageHandler(() =>
+//     {
+//         var handler = new HttpClientHandler();
+//         if (proxySettings.Enabled && !string.IsNullOrWhiteSpace(proxySettings.Address))
+//         {
+//             var proxy = new System.Net.WebProxy(proxySettings.Address);
+//             if (!string.IsNullOrWhiteSpace(proxySettings.Username))
+//                 proxy.Credentials = new System.Net.NetworkCredential(
+//                     proxySettings.Username, proxySettings.Password);
+//
+//             handler.Proxy = proxy;
+//             handler.UseProxy = true;
+//         }
+//
+//         return handler;
+//     });
 
 builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
 builder.Host.ConfigureContainer<ContainerBuilder>(autofacConfigure =>
@@ -57,6 +83,10 @@ app.UseCustomRateLimiting();
 
 app.UseAuthorization();
 
-app.UseEndpoints();
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapControllers();
+    endpoints.MapIptvHub();
+});
 
 app.Run();

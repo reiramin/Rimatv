@@ -1,17 +1,18 @@
-
 using Microsoft.Extensions.Options;
 using Utilities.Constants;
 using Utilities.Models.Settings;
 using Utilities.MongoDatabase;
 using Utilities.MongoDatabase.Contracts;
-using Utilities.Services;
 
-namespace M1Mentor.Api.Utilities.Configurations
+namespace iptv.Api.Utilities.Configurations
 {
     public static class ControllerServiceCollectionExtensions
     {
         public static void AddSettings(this IServiceCollection services, IConfiguration configuration)
         {
+            services.AddHttpClient();
+
+            services.AddSignalR();
 
             services.RegisterSetting<MonjoSettings, IMonjoSettings>(configuration.GetSection(nameof(MonjoSettings)));
 
@@ -28,6 +29,8 @@ namespace M1Mentor.Api.Utilities.Configurations
             services.RegisterSetting<AppSettings>(configuration.GetSection(nameof(AppSettings)));
             
             services.RegisterSetting<IRTHandlerSettings>(configuration.GetSection(nameof(IRTHandlerSettings)));
+            
+            // services.RegisterSetting<OutboundProxySettings>(configuration.GetSection(nameof(OutboundProxySettings)));
 
             // services.RegisterSetting<FileSettings>(configuration.GetSection(nameof(FileSettings)));
             // services.RegisterSetting<FileStorageSettings>(configuration.GetSection("FileStorage"));

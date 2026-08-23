@@ -1,5 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using M1Mentor.Utilities.Exceptions.Common;
+using Utilities.Exceptions.Common;
 
 namespace Utilities.Attributes
 {

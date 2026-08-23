@@ -1,9 +1,8 @@
-﻿using M1Mentor.Utilities.Exceptions.Common;
-using M1Mentor.Utilities.Services.Contracts;
-using MailKit.Security;
+﻿using MailKit.Security;
 using MimeKit;
 using MimeKit.Text;
 using Utilities.Constants;
+using Utilities.Exceptions.Common;
 using Utilities.Services.Contracts;
 using static Utilities.Constants.RegisterMode;
 

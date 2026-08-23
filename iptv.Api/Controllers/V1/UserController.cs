@@ -81,7 +81,7 @@ namespace iptv.Api.Controllers.V1
             => await _userService.DeleteUserByPublickeyAsync(update);
 
         [HttpPost("[action]")]
-        [global::Utilities.Filters.Authorize(Permissions.GetAllUsers)]
+        // [global::Utilities.Filters.Authorize(Permissions.GetAllUsers)]
         [SwaggerOperation(Tags = ["UserAdmin"])]
         public async Task<MonjoFilteredResult<UserFilteredForAdminResult>> GetAllAsync(MonjoQuery query)
             => await _userService.GetAllUsersAsync(query);

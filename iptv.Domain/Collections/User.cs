@@ -20,39 +20,6 @@ namespace iptv.Domain.Collections
     }
 
     public enum UserState { Active, Ban, Archived }
-    public enum UserRole { Admin, CFO, Creator}
-    public enum LessonType
-    {
-        Mathematics,
-        Physics,
-        Chemistry,
-        Biology,
-        ForeignLanguage,
-        Economics,
-        Geography,
-        ComputerScienceIct,
-        FinanceAndAccounting,
-        History,
-        Psychology,
-        Science,
-        Interview,
-        MAT,
-        TMUA,
-        TMUA2,
-        PAT,
-        ENGAA,
-        NSAA,
-        BMO,
-        SMC,
-        UKCHO,
-        C3L6,
-        BPHO,
-        BBO,
-        AMC12,
-        AIME,
-        G5,
-        BMAT,
-        ESAT,
-        TOEFL
-    }
+    public enum UserRole { Admin, User, Creator}
+   
 }

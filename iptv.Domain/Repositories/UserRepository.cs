@@ -1,8 +1,8 @@
 ﻿using iptv.Domain.Collections;
 using iptv.Domain.Repositories.Contracts;
-using M1Mentor.Utilities.Exceptions.Common;
 using MongoDB.Driver.Linq;
 using Utilities.Constants;
+using Utilities.Exceptions.Common;
 using Utilities.Extensions;
 using Utilities.MongoDatabase;
 using Utilities.MongoDatabase.Contracts;
