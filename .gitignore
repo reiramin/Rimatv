@@ -35,13 +35,13 @@ deploy.sh
 
 packages-microsoft-prod.deb
 
-Dockerfile
+#Dockerfile
 
 # Environment variables
 .env
 
 # Docker Compose config
-docker-compose.yml
+#docker-compose.yml
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
