@@ -23,7 +23,8 @@ builder.Services.AddSettings(builder.Configuration);
 //     .GetSection(nameof(OutboundProxySettings))
 //     .Get<OutboundProxySettings>() ?? new OutboundProxySettings();
 
-builder.Services.AddHttpClient();
+
+builder.Services.AddHttpClient("IptvProvider", client => { client.Timeout = TimeSpan.FromSeconds(90); });
 
 // builder.Services.AddHttpClient("IptvProvider", client => { client.Timeout = TimeSpan.FromSeconds(15); });
 //
@@ -44,6 +45,7 @@ builder.Services.AddHttpClient();
 //
 //         return handler;
 //     });
+
 
 builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
 builder.Host.ConfigureContainer<ContainerBuilder>(autofacConfigure =>

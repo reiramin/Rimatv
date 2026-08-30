@@ -43,7 +43,7 @@ namespace iptv.Services._Log
 
         public async Task HardDeleteLogsLogsAsync()
         {
-            await _logRepository.RealDeleteManyAsync(q => q.CreatedMoment <= DateTime.UtcNow.AddMonths(-1));
+            await _logRepository.RealDeleteManyAsync(q => q.CreatedMoment <= DateTime.UtcNow.AddDays(-1));
         }
 
         public async Task HardDeleteRequestLogsAsync()

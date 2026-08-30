@@ -45,11 +45,8 @@ public class IptvProviderService(
 
         using var httpClient = CreateHttpClient(provider);
 
-        var streams = await httpClient.GetFromJsonAsync<List<ExternalStream>>(
-            provider.StreamsEndpoint,
-            cancellationToken);
-
-        return streams ?? [];
+        return await FetchLargeJsonAsync<ExternalStream>(
+            httpClient, provider, provider.StreamsEndpoint, cancellationToken);
     }
 
     public async Task<List<ExternalLogo>> FetchLogosAsync(
@@ -61,11 +58,8 @@ public class IptvProviderService(
 
         using var httpClient = CreateHttpClient(provider);
 
-        var logos = await httpClient.GetFromJsonAsync<List<ExternalLogo>>(
-            provider.LogosEndpoint,
-            cancellationToken);
-
-        return logos ?? [];
+        return await FetchLargeJsonAsync<ExternalLogo>(
+            httpClient, provider, provider.LogosEndpoint, cancellationToken);
     }
 
     public async Task<List<IptvProviders>> GetActiveProvidersAsync(
@@ -77,6 +71,7 @@ public class IptvProviderService(
     public async Task<IptvProviderFilteredResult> CreateAsync(
         IptvProviderCreateUpdate update)
     {
+        ValidateProviderConfiguration(update);
         if (await _iptvProviderRepository.AsQueryable()
                 .AnyAsync(q => q.Name == update.Name && q.BaseUrl == update.BaseUrl))
             throw new BadRequestException(
@@ -110,47 +105,82 @@ public class IptvProviderService(
     {
         var provider =
             await _iptvProviderRepository.GetByPublicKeyAsync(
-                update.PublicKey) ?? throw new NotFoundException("IPTV provider not found.");
+                update.PublicKey)
+            ?? throw new NotFoundException(
+                "IPTV provider not found.");
 
-        if (await _iptvProviderRepository.AsQueryable()
+        if (await _iptvProviderRepository
+                .AsQueryable()
                 .AnyAsync(q =>
                     q.Name == update.Name &&
                     q.PublicKey != update.PublicKey))
+        {
             throw new BadRequestException(
                 "An IPTV provider with this name already exists.");
+        }
 
-        if (!string.IsNullOrWhiteSpace(update.ApiKey))
-            provider.ApiKey = update.ApiKey;
+        provider.Name = update.Name;
+
         if (!string.IsNullOrWhiteSpace(update.BaseUrl))
         {
-            ValidateUrl(nameof(update.BaseUrl), update.BaseUrl);
+            ValidateUrl(
+                nameof(update.BaseUrl),
+                update.BaseUrl);
+
             provider.BaseUrl = update.BaseUrl;
         }
+
         if (!string.IsNullOrWhiteSpace(update.ChannelsEndpoint))
         {
-            ValidateUrl(nameof(update.ChannelsEndpoint), update.ChannelsEndpoint);
-            provider.ChannelsEndpoint = update.ChannelsEndpoint;
+            ValidateUrl(
+                nameof(update.ChannelsEndpoint),
+                update.ChannelsEndpoint);
+
+            provider.ChannelsEndpoint =
+                update.ChannelsEndpoint;
         }
+
         if (!string.IsNullOrWhiteSpace(update.StreamsEndpoint))
         {
-            ValidateUrl(nameof(update.StreamsEndpoint), update.StreamsEndpoint);
-            provider.StreamsEndpoint = update.StreamsEndpoint;
+            ValidateUrl(
+                nameof(update.StreamsEndpoint),
+                update.StreamsEndpoint);
+
+            provider.StreamsEndpoint =
+                update.StreamsEndpoint;
         }
+        else if (provider.Kind == ProviderKind.Generic)
+        {
+            provider.StreamsEndpoint = string.Empty;
+        }
+
         if (!string.IsNullOrWhiteSpace(update.LogosEndpoint))
         {
-            ValidateUrl(nameof(update.LogosEndpoint), update.LogosEndpoint);
-            provider.LogosEndpoint = update.LogosEndpoint;
+            ValidateUrl(
+                nameof(update.LogosEndpoint),
+                update.LogosEndpoint);
+
+            provider.LogosEndpoint =
+                update.LogosEndpoint;
+        }
+        else if (provider.Kind == ProviderKind.Generic)
+        {
+            provider.LogosEndpoint = string.Empty;
+        }
+
+        if (!string.IsNullOrWhiteSpace(update.ApiKey))
+        {
+            provider.ApiKey = update.ApiKey;
         }
 
         provider.Inactive = update.Inactive;
 
-        if (!string.IsNullOrWhiteSpace(update.ApiKey))
-            provider.ApiKey = update.ApiKey;
-
-        await _iptvProviderRepository.ReplaceOneAsync(provider);
+        await _iptvProviderRepository
+            .ReplaceOneAsync(provider);
 
         return MapToResult(provider);
     }
+
 
     public async Task<IptvProviderFilteredResult> GetByPublicKeyAsync(GetGlobalIdUpdate publicKey)
     {
@@ -219,6 +249,34 @@ public class IptvProviderService(
 
     #region Private Methods
 
+    private static readonly System.Text.Json.JsonSerializerOptions ExternalJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    private static void ValidateProviderConfiguration(
+        IptvProviderCreateUpdate update)
+    {
+        if (update.Kind == ProviderKind.Pluto)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(update.ChannelsEndpoint))
+        {
+            throw new BadRequestException(
+                "ChannelsEndpoint is required for Generic providers.");
+        }
+
+        if (update.ChannelsEndpoint.Contains(
+                ".m3u8",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BadRequestException(
+                "Generic provider ChannelsEndpoint cannot be an M3U8 stream URL.");
+        }
+    }
+
     private static void ValidateUrl(string fieldName, string value, bool isRequired = true)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -239,10 +297,61 @@ public class IptvProviderService(
     private static async Task<List<ExternalChannel>> FetchGenericChannelsAsync(
         HttpClient httpClient, IptvProviders provider, CancellationToken cancellationToken)
     {
-        var channels = await httpClient.GetFromJsonAsync<List<ExternalChannel>>(
-            provider.ChannelsEndpoint, cancellationToken);
+        const int maxAttempts = 3;
+        Exception lastError = null;
 
-        return channels ?? [];
+        var timeoutSeconds = provider.FetchTimeoutSeconds > 0
+            ? provider.FetchTimeoutSeconds
+            : 60;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+
+                var channels = await httpClient.GetFromJsonAsync<List<ExternalChannel>>(
+                    provider.ChannelsEndpoint, ExternalJsonOptions, cts.Token);
+
+                return channels ?? [];
+            }
+            catch (Exception ex) when (attempt < maxAttempts)
+            {
+                lastError = ex;
+                await Task.Delay(TimeSpan.FromSeconds(attempt * 5), cancellationToken);
+            }
+        }
+
+        throw lastError!;
+    }
+
+    private static async Task<List<T>> FetchLargeJsonAsync<T>(
+        HttpClient httpClient,
+        IptvProviders provider,
+        string url,
+        CancellationToken cancellationToken)
+    {
+        using var requestCts = provider.FetchTimeoutSeconds > 0
+            ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
+            : null;
+
+        if (requestCts != null)
+            requestCts.CancelAfter(TimeSpan.FromSeconds(provider.FetchTimeoutSeconds));
+
+        var effectiveToken = requestCts?.Token ?? cancellationToken;
+
+        using var response = await httpClient.GetAsync(
+            url, HttpCompletionOption.ResponseHeadersRead, effectiveToken);
+
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync(effectiveToken);
+
+        var result = await System.Text.Json.JsonSerializer.DeserializeAsync<List<T>>(
+            stream, ExternalJsonOptions, effectiveToken);
+
+        return result ?? [];
     }
 
     private HttpClient CreateHttpClient(IptvProviders provider)
@@ -288,28 +397,45 @@ public class IptvProviderService(
 
     #region Private Methods - Pluto
 
-    private static readonly Dictionary<string, (DateTime FetchedAt, List<PlutoChannel> Data)> _plutoCache = new();
-    private static readonly SemaphoreSlim _plutoCach‍eLock = new(1, 1);
-    private static readonly TimeSpan PlutoCacheTtl = TimeSpan.FromMinutes(20);
+    private static readonly Dictionary<
+            string,
+            (DateTime FetchedAt, List<PlutoChannel> Data)>
+        _plutoCache = new();
+
+    private static readonly SemaphoreSlim
+        _plutoCacheLock = new(1, 1);
+
+    private static readonly TimeSpan
+        PlutoCacheTtl = TimeSpan.FromMinutes(20);
 
     private async Task<List<PlutoChannel>> FetchPlutoRawAsync(
-        IptvProviders provider, CancellationToken cancellationToken)
+        IptvProviders provider,
+        CancellationToken cancellationToken)
     {
         await _plutoCacheLock.WaitAsync(cancellationToken);
+
         try
         {
-            if (_plutoCache.TryGetValue(provider.PublicKey, out var cached) &&
-                DateTime.UtcNow - cached.FetchedAt < PlutoCacheTtl)
+            if (_plutoCache.TryGetValue(
+                    provider.PublicKey,
+                    out var cached)
+                && DateTime.UtcNow - cached.FetchedAt < PlutoCacheTtl)
+            {
                 return cached.Data;
+            }
 
-            using var httpClient = CreateHttpClient(provider);
+            using var httpClient =
+                CreateHttpClient(provider);
 
-            // آدرس واقعی Pluto برای لیست کانال‌ها؛ می‌تونی provider.ChannelsEndpoint رو
-            // دقیقاً همین مقدار بذاری (مثلاً "https://api.pluto.tv/v2/channels.json")
-            var raw = await httpClient.GetFromJsonAsync<List<PlutoChannel>>(
-                provider.ChannelsEndpoint, cancellationToken) ?? [];
+            var raw =
+                await httpClient.GetFromJsonAsync<List<PlutoChannel>>(
+                    provider.ChannelsEndpoint,
+                    cancellationToken)
+                ?? [];
 
-            _plutoCache[provider.PublicKey] = (DateTime.UtcNow, raw);
+            _plutoCache[provider.PublicKey] =
+                (DateTime.UtcNow, raw);
+
             return raw;
         }
         finally
@@ -318,46 +444,330 @@ public class IptvProviderService(
         }
     }
 
-    private async Task<List<ExternalChannel>> FetchPlutoChannelsAsync(
-        HttpClient httpClient, IptvProviders provider, CancellationToken cancellationToken)
+    private async Task<List<ExternalChannel>>
+        FetchPlutoChannelsAsync(
+            HttpClient httpClient,
+            IptvProviders provider,
+            CancellationToken cancellationToken)
     {
-        var raw = await FetchPlutoRawAsync(provider, cancellationToken);
+        var raw =
+            await FetchPlutoRawAsync(
+                provider,
+                cancellationToken);
 
         return raw
-            .Where(c => !string.IsNullOrWhiteSpace(c.Id) && !string.IsNullOrWhiteSpace(c.Name))
+            .Where(c =>
+                !string.IsNullOrWhiteSpace(c.Id)
+                && !string.IsNullOrWhiteSpace(c.Name))
             .Select(c => new ExternalChannel
             {
                 Id = c.Id,
                 Name = c.Name,
                 Logo = c.Logo?.Path,
-                Categories = string.IsNullOrWhiteSpace(c.Category) ? [] : [c.Category],
+                Categories =
+                    string.IsNullOrWhiteSpace(c.Category)
+                        ? []
+                        : [c.Category],
                 Country = "US"
             })
             .ToList();
     }
 
-    private async Task<List<ExternalStream>> FetchPlutoStreamsAsync(
-        IptvProviders provider, CancellationToken cancellationToken)
+    private async Task<List<ExternalStream>>
+        FetchPlutoStreamsAsync(
+            IptvProviders provider,
+            CancellationToken cancellationToken)
     {
-        var raw = await FetchPlutoRawAsync(provider, cancellationToken);
+        var raw =
+            await FetchPlutoRawAsync(
+                provider,
+                cancellationToken);
 
-        return raw
-            .Where(c => !string.IsNullOrWhiteSpace(c.Id) &&
-                        c.Stitched?.Urls != null &&
-                        c.Stitched.Urls.Count > 0)
-            .Select(c =>
+        using var httpClient =
+            CreateHttpClient(provider);
+
+        var streams = new List<ExternalStream>();
+
+        foreach (var channel in raw)
+        {
+            if (string.IsNullOrWhiteSpace(channel.Id))
+                continue;
+
+            var hlsUrl =
+                channel.Stitched?.Urls?
+                    .FirstOrDefault(u => string.Equals(
+                        u.Type,
+                        "hls",
+                        StringComparison.OrdinalIgnoreCase))
+                    ?.Url
+                ?? channel.Stitched?.Urls?
+                    .FirstOrDefault()?.Url;
+
+            if (string.IsNullOrWhiteSpace(hlsUrl))
+                continue;
+
+            try
             {
-                var bestUrl = c.Stitched.Urls.FirstOrDefault(u => u.Type == "hls")
-                              ?? c.Stitched.Urls.First();
+                var variants =
+                    await ExtractHlsVariantsAsync(
+                        httpClient,
+                        hlsUrl,
+                        cancellationToken);
 
-                return new ExternalStream
+                if (variants.Count > 0)
                 {
-                    Channel = c.Id,
-                    Url = bestUrl.Url,
-                    Quality = "hls"
-                };
-            })
+                    foreach (var variant in variants)
+                    {
+                        streams.Add(new ExternalStream
+                        {
+                            Channel = channel.Id,
+                            Url = variant.Url,
+                            Quality = variant.Quality
+                        });
+                    }
+
+                    continue;
+                }
+            }
+            catch
+            {
+                // If the master playlist cannot be read,
+                // keep the original HLS stream as Auto.
+            }
+
+            streams.Add(new ExternalStream
+            {
+                Channel = channel.Id,
+                Url = hlsUrl,
+                Quality = "Auto"
+            });
+        }
+
+        return streams;
+    }
+
+    private static async Task<List<HlsVariant>>
+        ExtractHlsVariantsAsync(
+            HttpClient httpClient,
+            string masterUrl,
+            CancellationToken cancellationToken)
+    {
+        using var response =
+            await httpClient.GetAsync(
+                masterUrl,
+                cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+
+        var playlist =
+            await response.Content.ReadAsStringAsync(
+                cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(playlist))
+            return [];
+
+        var lines =
+            playlist
+                .Split(
+                    ['\r', '\n'],
+                    StringSplitOptions.RemoveEmptyEntries);
+
+        var variants = new List<HlsVariant>();
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i].Trim();
+
+            if (!line.StartsWith(
+                    "#EXT-X-STREAM-INF:",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var attributes =
+                line["#EXT-X-STREAM-INF:".Length..];
+
+            var resolution =
+                GetHlsAttribute(
+                    attributes,
+                    "RESOLUTION");
+
+            var bandwidth =
+                GetHlsAttribute(
+                    attributes,
+                    "BANDWIDTH");
+
+            string? variantUrl = null;
+
+            for (var j = i + 1; j < lines.Length; j++)
+            {
+                var next = lines[j].Trim();
+
+                if (string.IsNullOrWhiteSpace(next))
+                    continue;
+
+                if (next.StartsWith("#"))
+                    continue;
+
+                variantUrl = next;
+
+                i = j;
+                break;
+            }
+
+            if (string.IsNullOrWhiteSpace(variantUrl))
+                continue;
+
+            var absoluteUrl =
+                ResolveHlsUrl(
+                    masterUrl,
+                    variantUrl);
+
+            var quality =
+                ResolveQuality(
+                    resolution,
+                    bandwidth);
+
+            variants.Add(new HlsVariant
+            {
+                Url = absoluteUrl,
+                Quality = quality
+            });
+        }
+
+        return variants
+            .GroupBy(v =>
+                    $"{v.Quality}|{v.Url}",
+                StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .OrderByDescending(v =>
+                GetQualityRank(v.Quality))
             .ToList();
+    }
+
+    private static string? GetHlsAttribute(
+        string attributes,
+        string attributeName)
+    {
+        var parts =
+            attributes.Split(
+                ',',
+                StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var part in parts)
+        {
+            var separator =
+                part.IndexOf('=');
+
+            if (separator <= 0)
+                continue;
+
+            var key =
+                part[..separator].Trim();
+
+            if (!string.Equals(
+                    key,
+                    attributeName,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return part[(separator + 1)..]
+                .Trim()
+                .Trim('"');
+        }
+
+        return null;
+    }
+
+    private static string ResolveQuality(
+        string? resolution,
+        string? bandwidth)
+    {
+        if (!string.IsNullOrWhiteSpace(resolution))
+        {
+            var xIndex =
+                resolution.IndexOf(
+                    'x',
+                    StringComparison.OrdinalIgnoreCase);
+
+            if (xIndex > 0
+                && int.TryParse(
+                    resolution[(xIndex + 1)..],
+                    out var height))
+            {
+                return $"{height}p";
+            }
+        }
+
+        // Some playlists don't expose RESOLUTION.
+        // Use bandwidth only as a fallback.
+        if (long.TryParse(
+                bandwidth,
+                out var bitrate))
+        {
+            return bitrate switch
+            {
+                >= 8_000_000 => "1080p",
+                >= 4_000_000 => "720p",
+                >= 2_000_000 => "480p",
+                >= 1_000_000 => "360p",
+                _ => "Auto"
+            };
+        }
+
+        return "Auto";
+    }
+
+    private static int GetQualityRank(
+        string quality)
+    {
+        return quality.ToLowerInvariant() switch
+        {
+            "2160p" => 2160,
+            "1440p" => 1440,
+            "1080p" => 1080,
+            "720p" => 720,
+            "576p" => 576,
+            "480p" => 480,
+            "360p" => 360,
+            "240p" => 240,
+            _ => 0
+        };
+    }
+
+    private static string ResolveHlsUrl(
+        string masterUrl,
+        string variantUrl)
+    {
+        if (Uri.TryCreate(
+                variantUrl,
+                UriKind.Absolute,
+                out var absolute))
+        {
+            return absolute.ToString();
+        }
+
+        if (!Uri.TryCreate(
+                masterUrl,
+                UriKind.Absolute,
+                out var master))
+        {
+            return variantUrl;
+        }
+
+        return new Uri(
+            master,
+            variantUrl).ToString();
+    }
+
+    private sealed class HlsVariant
+    {
+        public string Url { get; set; } = string.Empty;
+
+        public string Quality { get; set; } = "Auto";
     }
 
     #endregion

@@ -23,6 +23,8 @@ public class IptvProviders : BaseDocument
     public string LastSyncStatus { get; set; }
     
     public ProviderKind Kind { get; set; } = ProviderKind.Generic;
+    
+    public int FetchTimeoutSeconds { get; set; } = 0;
 
     // public bool UseProxy { get; set; }
 }
