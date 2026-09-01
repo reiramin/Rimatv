@@ -12,6 +12,11 @@ namespace iptv.Api.Utilities.MiddleWares
     {
         public async Task InvokeAsync(HttpContext context)
         {
+            if (HttpMethods.IsOptions(context.Request.Method))
+            {
+                await _next(context);
+                return;
+            }
             var endpoint = context.GetEndpoint();
             var ignoreLog = endpoint?.Metadata.GetMetadata<IgnoreLoggingAttribute>();
             if (ignoreLog != null)

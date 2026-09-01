@@ -57,17 +57,17 @@ builder.Host.ConfigureContainer<ContainerBuilder>(autofacConfigure =>
 
 var app = builder.Build();
 
+app.UseCustomCors();
+
 app.UseHsts(app.Environment);
 
 app.UseDeveloperExceptionPage(app.Environment);
 
 app.UseSwaggerAndUI();
 
-app.UseLogger();
-
 app.UseCustomExceptionHandler();
 
-app.UseCustomCors();
+app.UseLogger();
 
 app.UseFirewall();
 
