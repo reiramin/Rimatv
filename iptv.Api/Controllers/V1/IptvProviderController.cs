@@ -25,50 +25,58 @@ namespace iptv.Api.Controllers.V1
         IIptvSyncService _iptvSyncService) : ApiBaseController
     {
         [HttpPost("[action]")]
-        // [Authorize(Permissions.CreateIptvProvider)]
+        [Authorize(Permissions.CreateIptvProvider)]
+        [CustomRateLimit(message: "Too many requests. Please try again later.", periodSeconds: 5 * 60, maxAttemptsCount: 10, lockoutDurationMinutes: 5)]
         [SwaggerOperation(Summary = "Create a new IPTV provider.", Tags = ["IptvProvider-Admin"])]
         public async Task<IptvProviderFilteredResult> CreateAsync(IptvProviderCreateUpdate update)
             => await _iptvProviderService.CreateAsync(update);
 
         [HttpPut("[action]")]
-        // [Authorize(Permissions.EditIptvProvider)]
+        [Authorize(Permissions.EditIptvProvider)]
+        [CustomRateLimit]
         [SwaggerOperation(Summary = "Edit an existing IPTV provider.", Tags = ["IptvProvider-Admin"])]
         public async Task<IptvProviderFilteredResult> EditAsync(IptvProviderEditUpdate update)
             => await _iptvProviderService.EditAsync(update);
 
         [HttpPost("[action]")]
-        // [Authorize(Permissions.GetAllIptvProviders)]
+        [Authorize(Permissions.GetAllIptvProviders)]
+        [CustomRateLimit]
         [SwaggerOperation(Summary = "Get all IPTV providers (filtered).", Tags = ["IptvProvider-Admin"])]
         public async Task<MonjoFilteredResult<IptvProviderFilteredResult>> GetAllAsync(MonjoQuery query)
             => await _iptvProviderService.GetAllAsync(query);
 
         [HttpPost("[action]")]
-        // [Authorize(Permissions.GetAllIptvProviders)]
+        [Authorize(Permissions.GetAllIptvProviders)]
+        [CustomRateLimit]
         [SwaggerOperation(Summary = "Get an IPTV provider by public key.", Tags = ["IptvProvider-Admin"])]
         public async Task<IptvProviderFilteredResult> GetAsync([FromQuery] GetGlobalIdUpdate publicKey)
             => await _iptvProviderService.GetByPublicKeyAsync(publicKey);
 
         [HttpPut("[action]")]
-        // [Authorize(Permissions.EditIptvProvider)]
+        [Authorize(Permissions.EditIptvProvider)]
+        [CustomRateLimit]
         [SwaggerOperation(Summary = "Activate or deactivate an IPTV provider.", Tags = ["IptvProvider-Admin"])]
         public async Task<IptvProviderFilteredResult> ActivateAsync([FromQuery] string publicKey,
             [FromQuery] bool shouldActivate)
             => await _iptvProviderService.ActivateAsync(publicKey, shouldActivate);
 
         [HttpDelete("[action]")]
-        // [Authorize(Permissions.DeleteIptvProvider)]
+        [Authorize(Permissions.DeleteIptvProvider)]
+        [CustomRateLimit]
         [SwaggerOperation(Summary = "Delete an IPTV provider.", Tags = ["IptvProvider-Admin"])]
         public async Task<string> DeleteAsync([FromQuery] string publicKey)
             => await _iptvProviderService.DeleteAsync(publicKey);
 
         [HttpPost("[action]")]
-        // [Authorize(Permissions.SyncIptvProvider)]
+        [Authorize(Permissions.SyncIptvProvider)]
+        [CustomRateLimit]
         [SwaggerOperation(Summary = "Trigger synchronization for all active providers.", Tags = ["IptvProvider-Admin"])]
         public async Task<List<IptvSyncResult>> SyncAllAsync()
             => await _iptvSyncService.SyncAllProvidersAsync();
 
         [HttpPost("[action]")]
-        // [Authorize(Permissions.SyncIptvProvider)]
+        [Authorize(Permissions.SyncIptvProvider)]
+        [CustomRateLimit]
         [SwaggerOperation(Summary = "Trigger synchronization for a single provider.", Tags = ["IptvProvider-Admin"])]
         public async Task<IptvSyncResult> SyncAsync([FromQuery] GetGlobalIdUpdate publicKey)
             => await _iptvSyncService.SyncProviderAsync(publicKey.Id);

@@ -10,6 +10,8 @@ public interface IChannelService
 {
     Task<MonjoFilteredResult<ChannelFilteredResult>> GetAllAsync(MonjoQuery query);
 
+    Task<MonjoFilteredResult<ChannelWithStreamResult>> GetAllWithStreamAsync(MonjoQuery query);
+    
     Task<MonjoFilteredResult<ChannelFilteredResult>>
         GetChannelsFilteredAsync(MonjoQuery query, GetChannelsFilteredUpdate update);
 

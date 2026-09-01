@@ -17,9 +17,124 @@ namespace iptv.Services._Channel;
 
 public class ChannelService(
     IChannelRepository _channelRepository,
-    IIptvEventPublisher _eventPublisher)
+    IIptvEventPublisher _eventPublisher,
+    IStreamRepository _streamRepository)
     : IChannelService, RegisterMode.IScopedDependency
 {
+    public async Task<MonjoFilteredResult<ChannelWithStreamResult>> GetAllWithStreamAsync(
+        MonjoQuery query)
+    {
+        query.WithBase<ChannelWithStreamResult>();
+
+        var channelsQuery = _channelRepository
+            .AsQueryable()
+            .Where(q => !q.Inactive)
+            .Apply(query.Where, nameof(ChannelWithStreamResult))
+            .Apply(query.Order, nameof(ChannelWithStreamResult));
+
+        var totalCount = await channelsQuery.CountAsync();
+
+        if (totalCount == 0)
+            return new MonjoFilteredResult<ChannelWithStreamResult>
+            {
+                TotalCount = 0,
+                PageCount = 0,
+                Data = []
+            };
+
+        var pagedChannels = await channelsQuery
+            .Apply(query.Page)
+            .Select(q => new
+            {
+                q.ChannelId,
+                q.Name,
+                q.ImageUri,
+                q.Country,
+                q.Category,
+                q.CurrentStreamId
+            })
+            .ToListAsync();
+
+        var channelIds = pagedChannels
+            .Select(q => q.ChannelId)
+            .ToHashSet();
+
+        var allStreams = await _streamRepository
+            .AsQueryable()
+            .Where(q =>
+                channelIds.Contains(q.ChannelId) &&
+                !q.Inactive &&
+                q.IsHealthy)
+            .OrderByDescending(q => q.QualityRank)
+            .Select(q => new
+            {
+                q.StreamId,
+                q.ChannelId,
+                q.StreamUri,
+                q.UserAgent,
+                q.Referer,
+                q.Type,
+                q.Quality,
+                q.QualityRank
+            })
+            .ToListAsync();
+
+        var bestStreamByChannelId = allStreams
+            .GroupBy(q => q.ChannelId)
+            .ToDictionary(
+                g => g.Key,
+                g =>
+                {
+                    var channel = pagedChannels.First(c => c.ChannelId == g.Key);
+
+                    if (!string.IsNullOrEmpty(channel.CurrentStreamId))
+                    {
+                        var current = g.FirstOrDefault(s =>
+                            s.StreamId == channel.CurrentStreamId);
+
+                        if (current != null)
+                            return current;
+                    }
+
+                    return g
+                        .OrderByDescending(s => s.QualityRank)
+                        .First();
+                });
+
+        var pageSize = query.Page?.Size ?? totalCount;
+        var pageCount = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        var data = pagedChannels.Select(channel =>
+        {
+            bestStreamByChannelId.TryGetValue(channel.ChannelId, out var stream);
+
+            return new ChannelWithStreamResult
+            {
+                ChannelId = channel.ChannelId,
+                Name = channel.Name,
+                ImageUri = channel.ImageUri,
+                Country = channel.Country,
+                Category = channel.Category,
+                Stream = stream == null
+                    ? null
+                    : new StreamSummaryResult
+                    {
+                        StreamId = stream.StreamId,
+                        StreamUri = stream.StreamUri,
+                        Type = stream.Type,
+                        Quality = stream.Quality,
+                    }
+            };
+        }).ToList();
+
+        return new MonjoFilteredResult<ChannelWithStreamResult>
+        {
+            TotalCount = totalCount,
+            PageCount = pageCount,
+            Data = data
+        };
+    }
+
     public async Task<MonjoFilteredResult<ChannelFilteredResult>> GetAllAsync(
         MonjoQuery query)
     {
@@ -41,6 +156,7 @@ public class ChannelService(
             })
             .ExecuteAsync(query, nameof(ChannelFilteredResult));
     }
+
 
     public async Task<MonjoFilteredResult<ChannelFilteredResult>> GetChannelsFilteredAsync(
         MonjoQuery query,

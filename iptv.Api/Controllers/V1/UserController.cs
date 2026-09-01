@@ -38,6 +38,7 @@ namespace iptv.Api.Controllers.V1
             => await _userService.RenewTokenAsync(update);
 
         [HttpPost("[action]")]
+        [CustomRateLimit]
         [global::Utilities.Filters.Authorize]
         [SwaggerOperation(Tags = ["Auth"])]
         public async Task<bool> LogoutAsync()
@@ -45,43 +46,50 @@ namespace iptv.Api.Controllers.V1
 
 
         [HttpPost("[action]")]
-        // [global::Utilities.Filters.Authorize(Permissions.CreateUser)]
+        [CustomRateLimit]
+        [global::Utilities.Filters.Authorize(Permissions.CreateUser)]
         [SwaggerOperation(Tags = ["UserAdmin"])]
         public async Task<UserFilteredResult> CreateAsync(UserRegisterUpdate update)
             => await _userService.CreateUserAsync(update);
 
         [HttpPut("[action]")]
+        [CustomRateLimit]
         [global::Utilities.Filters.Authorize(Permissions.EditUser)]
         [SwaggerOperation(Tags = ["UserAdmin"])]
         public async Task<bool> ChangePasswordAsync(UserResetPasswordUpdate update)
             => await _userService.ChangePasswordAsync(update);
 
         [HttpPut("[action]")]
+        [CustomRateLimit]
         [global::Utilities.Filters.Authorize(Permissions.EditUser)]
         [SwaggerOperation(Tags = ["UserAdmin"])]
         public async Task<UserFilteredResult> EditAsync(UserEditUpdate update)
             => await _userService.EditUserAsync(update);
 
         [HttpPut("[action]")]
+        [CustomRateLimit]
         [global::Utilities.Filters.Authorize(Permissions.ArchiveUser)]
         [SwaggerOperation(Tags = ["UserAdmin"])]
         public async Task<UserFilteredResult> ArchiveAsync(UserArchiveUserUpdate update)
             => await _userService.ArchiveUserAsync(update);
 
         [HttpPut("[action]")]
+        [CustomRateLimit]
         [global::Utilities.Filters.Authorize(Permissions.BanUser)]
         [SwaggerOperation(Tags = ["UserAdmin"])]
         public async Task<UserFilteredResult> BanAsync(UserBanUpdate update)
             => await _userService.BanUserAsync(update);
 
         [HttpDelete("[action]")]
+        [CustomRateLimit]
         [global::Utilities.Filters.Authorize(Permissions.DeleteUser)]
         [SwaggerOperation(Tags = ["UserAdmin"])]
         public async Task<string> DeleteAsync(UserDeleteUserUpdate update)
             => await _userService.DeleteUserByPublickeyAsync(update);
 
         [HttpPost("[action]")]
-        // [global::Utilities.Filters.Authorize(Permissions.GetAllUsers)]
+        [CustomRateLimit]
+        [global::Utilities.Filters.Authorize(Permissions.GetAllUsers)]
         [SwaggerOperation(Tags = ["UserAdmin"])]
         public async Task<MonjoFilteredResult<UserFilteredForAdminResult>> GetAllAsync(MonjoQuery query)
             => await _userService.GetAllUsersAsync(query);
@@ -93,19 +101,22 @@ namespace iptv.Api.Controllers.V1
         //    => await _userService.GetCountOfEachRoleAsync(PublicKey);
 
         [HttpGet("[action]")]
-        // [Authorize(Permissions.CreateUser, Permissions.EditUser)]
+        [CustomRateLimit]
+        [global::Utilities.Filters.Authorize(Permissions.CreateUser, Permissions.EditUser)]
         [SwaggerOperation(Tags = ["UserAdmin"])]
         public Dictionary<string, Dictionary<string, string>> GetClassifiedPermissions()
             => _userService.GetClassifiedPermissions();
 
 
         [HttpPut("[action]")]
+        [CustomRateLimit]
         [global::Utilities.Filters.Authorize]
         [SwaggerOperation(Tags = ["User"])]
         public async Task<bool> ResetPasswordAsync(UserManualChangePasswordUpdate update)
             => await _userService.ResetPasswordAsync(update, PublicKey);
 
         [HttpGet("[action]")]
+        [CustomRateLimit]
         [global::Utilities.Filters.Authorize]
         [SwaggerOperation(Tags = ["User"])]
         public async Task<UserFilteredResult> GetAsync()

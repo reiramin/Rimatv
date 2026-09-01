@@ -22,23 +22,35 @@ namespace iptv.Api.Controllers.V1
     public class ChannelController(IChannelService _channelService) : ApiBaseController
     {
         [HttpPost("[action]")]
+        [SwaggerOperation(
+            Summary = "Get all active channels with their best stream — for Flutter landing.",
+            Tags = ["Channel"])]
+        [CustomRateLimit]
+        public async Task<MonjoFilteredResult<ChannelWithStreamResult>> GetAllWithStreamAsync(
+            MonjoQuery query) => await _channelService.GetAllWithStreamAsync(query);
+
+        [HttpPost("[action]")]
+        [CustomRateLimit]
         [SwaggerOperation(Summary = "Get active channels (filtered, for Flutter/Web).", Tags = ["Channel"])]
         public async Task<MonjoFilteredResult<ChannelFilteredResult>> GetAllAsync(MonjoQuery query)
             => await _channelService.GetAllAsync(query);
 
         [HttpPost("[action]")]
+        [CustomRateLimit]
         [SwaggerOperation(Summary = "Get a channel by its channel id.", Tags = ["Channel"])]
         public async Task<ChannelFilteredResult> GetAsync([FromQuery] GetGlobalIdUpdate channelId)
             => await _channelService.GetByChannelIdAsync(channelId);
 
         [HttpPost("[action]")]
+        [CustomRateLimit]
         [SwaggerOperation(Summary = "Get a channel by filtered", Tags = ["Channel"])]
         public async Task<MonjoFilteredResult<ChannelFilteredResult>>
-            GetChannelsFilteredAsync(MonjoQuery query,[FromQuery] GetChannelsFilteredUpdate update)
+            GetChannelsFilteredAsync(MonjoQuery query, [FromQuery] GetChannelsFilteredUpdate update)
             => await _channelService.GetChannelsFilteredAsync(
                 query, update);
 
         [HttpPost("[action]")]
+        [CustomRateLimit]
         [SwaggerOperation(Summary = "Get a channel by Search.", Tags = ["Channel"])]
         public async Task<ManualPaginationResult<ChannelResult>> GetChannelWithSearchAsync(
             [FromQuery] GetAllChannelUpdate update)
@@ -47,19 +59,19 @@ namespace iptv.Api.Controllers.V1
         #region Admin Actions
 
         [HttpPost("[action]")]
-        // [global::Utilities.Filters.Authorize(Permissions.GetAllChannels)]
+        [Authorize(Permissions.GetAllChannels)]
         [SwaggerOperation(Summary = "Get all channels including inactive ones.", Tags = ["Channel-Admin"])]
         public async Task<MonjoFilteredResult<ChannelFilteredResult>> GetAllForAdminAsync(MonjoQuery query)
             => await _channelService.GetAllForAdminAsync(query);
 
         [HttpPut("[action]")]
-        // [global::Utilities.Filters.Authorize(Permissions.EditChannel)]
+        [Authorize(Permissions.EditChannel)]
         [SwaggerOperation(Summary = "Activate or deactivate a channel.", Tags = ["Channel-Admin"])]
         public async Task<ChannelFilteredResult> ActivateAsync(ChannelActivateUpdate update)
             => await _channelService.ActivateAsync(update);
 
         [HttpDelete("[action]")]
-        // [global::Utilities.Filters.Authorize(Permissions.DeleteChannel)]
+        [Authorize(Permissions.DeleteChannel)]
         [SwaggerOperation(Summary = "Delete a channel.", Tags = ["Channel-Admin"])]
         public async Task<string> DeleteAsync(ChannelDeleteUpdate update)
             => await _channelService.DeleteAsync(update);

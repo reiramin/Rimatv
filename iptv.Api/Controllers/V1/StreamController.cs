@@ -21,12 +21,14 @@ namespace iptv.Api.Controllers.V1
     {
         [HttpPost("[action]")]
         [Authorize]
+        [CustomRateLimit]
         [SwaggerOperation(Summary = "Get all active streams of a channel.", Tags = ["Stream"])]
         public async Task<List<StreamFilteredResult>> GetByChannelAsync([FromQuery] GetGlobalIdUpdate channelId)
             => await _streamService.GetByChannelAsync(channelId);
 
         [HttpPost("[action]")]
         [Authorize]
+        [CustomRateLimit]
         [SwaggerOperation(Summary = "Get the playback stream for a channel with automatic healthy fallback.",
             Tags = ["Stream"])]
         public async Task<StreamPlaybackResult> GetPlaybackStreamAsync([FromQuery] GetGlobalIdUpdate channelId)
@@ -34,6 +36,7 @@ namespace iptv.Api.Controllers.V1
 
         [HttpPost("[action]")]
         [Authorize]
+        [CustomRateLimit]
         [SwaggerOperation(Summary = "Report a failing stream; another healthy stream is selected automatically.",
             Tags = ["Stream"])]
         public async Task<StreamFilteredResult> ReportFailureAsync(StreamReportFailureUpdate update)

@@ -19,13 +19,15 @@ namespace iptv.Api.Controllers.V1
     public class SyncLogController(ISyncLogService _syncLogService) : ApiBaseController
     {
         [HttpPost("[action]")]
-        // [global::Utilities.Filters.Authorize(Permissions.GetAllSyncLogs)]
+        [CustomRateLimit]
+        [Authorize(Permissions.GetAllSyncLogs)]
         [SwaggerOperation(Summary = "Get synchronization logs (filtered).", Tags = ["SyncLog-Admin"])]
         public async Task<MonjoFilteredResult<SyncLogFilteredResult>> GetAllAsync(MonjoQuery query)
             => await _syncLogService.GetAllAsync(query);
 
         [HttpGet("[action]")]
-        // [global::Utilities.Filters.Authorize(Permissions.GetAllSyncLogs)]
+        [CustomRateLimit]
+        [Authorize(Permissions.GetAllSyncLogs)]
         [SwaggerOperation(Summary = "Get a single synchronization log by public key.", Tags = ["SyncLog-Admin"])]
         public async Task<SyncLogFilteredResult> GetAsync([FromQuery] string publicKey)
             => await _syncLogService.GetByPublicKeyAsync(publicKey);
