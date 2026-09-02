@@ -37,5 +37,8 @@ public class ChannelWithStreamResult
     public string ImageUri { get; set; }
     public string Country { get; set; }
     public string Category { get; set; }
-    public string? CurrentStreamId { get; set; }
+    public string? CurrentStreamUrl { get; set; }
+    
+    public bool Inactive { get; set; }
+
 }

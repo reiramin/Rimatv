@@ -100,7 +100,6 @@ public class StreamService(
                         q.StreamId != stream.StreamId &&
                         !q.Inactive &&
                         q.IsHealthy)
-            .OrderByDescending(q => q.QualityRank)
             .FirstOrDefaultAsync();
 
         var channel = await _channelRepository.GetByChannelIdAsync(stream.ChannelId);

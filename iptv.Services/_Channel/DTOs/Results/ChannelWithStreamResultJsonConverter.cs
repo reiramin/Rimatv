@@ -20,12 +20,13 @@ public class ChannelWithStreamResultJsonConverter : JsonConverter<ChannelWithStr
         writer.WriteString("country", value.Country);
         writer.WriteString("category", value.Category);
         
-        // Always include currentStreamId, even if null
-        writer.WritePropertyName("currentStreamId");
-        if (value.CurrentStreamId == null)
+        writer.WritePropertyName("CurrentStreamUrl");
+        if (value.CurrentStreamUrl == null)
             writer.WriteNullValue();
         else
-            writer.WriteStringValue(value.CurrentStreamId);
+            writer.WriteStringValue(value.CurrentStreamUrl);
+        
+        writer.WriteBoolean("inactive", value.Inactive);
         
         writer.WriteEndObject();
     }

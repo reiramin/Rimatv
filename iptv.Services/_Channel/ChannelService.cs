@@ -117,9 +117,8 @@ public class ChannelService(
                 ImageUri = channel.ImageUri,
                 Country = channel.Country,
                 Category = channel.Category,
-                CurrentStreamId = stream == null
-                    ? null
-                    : stream.StreamId
+                CurrentStreamUrl = stream?.StreamUri,
+                Inactive = channelsQuery.FirstOrDefault(q => q.ChannelId == channel.ChannelId)?.Inactive ?? false
             };
         }).ToList();
 
