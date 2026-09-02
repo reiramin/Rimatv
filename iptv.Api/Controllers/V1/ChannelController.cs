@@ -32,19 +32,19 @@ namespace iptv.Api.Controllers.V1
         [HttpPost("[action]")]
         [CustomRateLimit]
         [SwaggerOperation(Summary = "Get active channels (filtered, for Flutter/Web).", Tags = ["Channel"])]
-        public async Task<MonjoFilteredResult<ChannelFilteredResult>> GetAllAsync(MonjoQuery query)
+        public async Task<MonjoFilteredResult<ChannelBasicResult>> GetAllAsync(MonjoQuery query)
             => await _channelService.GetAllAsync(query);
 
         [HttpPost("[action]")]
         [CustomRateLimit]
         [SwaggerOperation(Summary = "Get a channel by its channel id.", Tags = ["Channel"])]
-        public async Task<ChannelFilteredResult> GetAsync([FromQuery] GetGlobalIdUpdate channelId)
+        public async Task<ChannelBasicResult> GetAsync([FromQuery] GetGlobalIdUpdate channelId)
             => await _channelService.GetByChannelIdAsync(channelId);
 
         [HttpPost("[action]")]
         [CustomRateLimit]
         [SwaggerOperation(Summary = "Get a channel by filtered", Tags = ["Channel"])]
-        public async Task<MonjoFilteredResult<ChannelFilteredResult>>
+        public async Task<MonjoFilteredResult<ChannelBasicResult>>
             GetChannelsFilteredAsync(MonjoQuery query, [FromQuery] GetChannelsFilteredUpdate update)
             => await _channelService.GetChannelsFilteredAsync(
                 query, update);

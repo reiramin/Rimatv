@@ -131,17 +131,17 @@ public class ChannelService(
         };
     }
 
-    public async Task<MonjoFilteredResult<ChannelFilteredResult>> GetAllAsync(
+    public async Task<MonjoFilteredResult<ChannelBasicResult>> GetAllAsync(
         MonjoQuery query)
     {
-        query.WithBase<ChannelFilteredResult>();
+        query.WithBase<ChannelBasicResult>();
 
         return await _channelRepository
             .AsQueryable()
             .Where(q => !q.Inactive)
-            .Apply(query.Where, nameof(ChannelFilteredResult))
-            .Apply(query.Order, nameof(ChannelFilteredResult))
-            .Select(n => new ChannelFilteredResult
+            .Apply(query.Where, nameof(ChannelBasicResult))
+            .Apply(query.Order, nameof(ChannelBasicResult))
+            .Select(n => new ChannelBasicResult
             {
                 ChannelId = n.ChannelId,
                 Name = n.Name,
@@ -150,11 +150,11 @@ public class ChannelService(
                 Category = n.Category,
                 CurrentStreamId = n.CurrentStreamId
             })
-            .ExecuteAsync(query, nameof(ChannelFilteredResult));
+            .ExecuteAsync(query, nameof(ChannelBasicResult));
     }
 
 
-    public async Task<MonjoFilteredResult<ChannelFilteredResult>> GetChannelsFilteredAsync(
+    public async Task<MonjoFilteredResult<ChannelBasicResult>> GetChannelsFilteredAsync(
         MonjoQuery query,
         GetChannelsFilteredUpdate update)
     {
@@ -173,7 +173,7 @@ public class ChannelService(
                          q.ImageUri.ToLower().Contains(update.ImageUri.ToLower())))
             .Apply(query.Where, nameof(ChannelFilteredResult))
             .Apply(query.Order, nameof(ChannelFilteredResult))
-            .Select(n => new ChannelFilteredResult
+            .Select(n => new ChannelBasicResult
             {
                 ChannelId = n.ChannelId,
                 Name = n.Name,
@@ -253,12 +253,12 @@ public class ChannelService(
         return result;
     }
 
-    public async Task<ChannelFilteredResult> GetByChannelIdAsync(GetGlobalIdUpdate channelId)
+    public async Task<ChannelBasicResult> GetByChannelIdAsync(GetGlobalIdUpdate channelId)
     {
         var channel = await _channelRepository.GetByChannelIdAsync(channelId.Id)
                       ?? throw new NotFoundException("Channel not found.");
 
-        return (new ChannelFilteredResult
+        return (new ChannelBasicResult
         {
             ChannelId = channel.ChannelId,
             Name = channel.Name,

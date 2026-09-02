@@ -1,0 +1,32 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace iptv.Services._Channel.DTOs.Results;
+
+public class ChannelWithStreamResultJsonConverter : JsonConverter<ChannelWithStreamResult>
+{
+    public override ChannelWithStreamResult Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override void Write(Utf8JsonWriter writer, ChannelWithStreamResult value, JsonSerializerOptions options)
+    {
+        writer.WriteStartObject();
+        
+        writer.WriteString("channelId", value.ChannelId);
+        writer.WriteString("name", value.Name);
+        writer.WriteString("imageUri", value.ImageUri);
+        writer.WriteString("country", value.Country);
+        writer.WriteString("category", value.Category);
+        
+        // Always include currentStreamId, even if null
+        writer.WritePropertyName("currentStreamId");
+        if (value.CurrentStreamId == null)
+            writer.WriteNullValue();
+        else
+            writer.WriteStringValue(value.CurrentStreamId);
+        
+        writer.WriteEndObject();
+    }
+}
