@@ -79,26 +79,28 @@ public class ChannelService(
             })
             .ToListAsync();
 
-        var bestStreamByChannelId = allStreams
-            .GroupBy(q => q.ChannelId)
+        var bestStreamByChannelId = pagedChannels
             .ToDictionary(
-                g => g.Key,
-                g =>
+                channel => channel.ChannelId,
+                channel =>
                 {
-                    var channel = pagedChannels.First(c => c.ChannelId == g.Key);
+                    var streamsByChannel = allStreams.Where(s => s.ChannelId == channel.ChannelId).ToList();
+
+                    if (!streamsByChannel.Any())
+                        return null;
 
                     if (!string.IsNullOrEmpty(channel.CurrentStreamId))
                     {
-                        var current = g.FirstOrDefault(s =>
+                        var current = streamsByChannel.FirstOrDefault(s =>
                             s.StreamId == channel.CurrentStreamId);
 
                         if (current != null)
                             return current;
                     }
 
-                    return g
+                    return streamsByChannel
                         .OrderByDescending(s => s.QualityRank)
-                        .First();
+                        .FirstOrDefault();
                 });
 
         var pageSize = query.Page?.Size ?? totalCount;
@@ -115,15 +117,9 @@ public class ChannelService(
                 ImageUri = channel.ImageUri,
                 Country = channel.Country,
                 Category = channel.Category,
-                Stream = stream == null
+                CurrentStreamId = stream == null
                     ? null
-                    : new StreamSummaryResult
-                    {
-                        StreamId = stream.StreamId,
-                        StreamUri = stream.StreamUri,
-                        Type = stream.Type,
-                        Quality = stream.Quality,
-                    }
+                    : stream.StreamId
             };
         }).ToList();
 

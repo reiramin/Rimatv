@@ -1,0 +1,3828 @@
+
+============================================================
+FILE: iptv.Services/_IptvSync/_BackgroundServices/IptvSyncScheduler.cs
+============================================================
+using iptv.Services._IptvSync.Contracts;
+using Microsoft.Extensions.DependencyInjection;
+using Utilities.Constants;
+using Utilities.Services;
+
+namespace iptv.Services._IptvSync._BackgroundServices;
+
+public class IptvSyncScheduler(IServiceProvider serviceProvider)
+    : SchedulerBase(serviceProvider, TimeSpan.FromMinutes(30)), RegisterMode.IHostedDependency
+{
+    protected override async Task HandleAsync(IServiceProvider scopedProvider)
+    {
+        var syncService = scopedProvider.GetRequiredService<IIptvSyncService>();
+
+        await syncService.SyncAllProvidersAsync();
+    }
+}
+
+============================================================
+FILE: iptv.Services/_IptvSync/Contracts/IIptvSyncService.cs
+============================================================
+using iptv.Services._IptvSync.DTOs.Results;
+
+namespace iptv.Services._IptvSync.Contracts;
+
+public interface IIptvSyncService
+{
+    Task<List<IptvSyncResult>> SyncAllProvidersAsync(CancellationToken cancellationToken = default);
+
+    Task<IptvSyncResult> SyncProviderAsync(string providerPublicKey,
+        CancellationToken cancellationToken = default);
+}
+
+============================================================
+FILE: iptv.Services/_IptvSync/DTOs/Results/IptvSyncResult.cs
+============================================================
+namespace iptv.Services._IptvSync.DTOs.Results;
+
+public class IptvSyncResult
+{
+    public string ProviderPublicKey { get; set; }
+    public string ProviderName { get; set; }
+    public string Status { get; set; }
+    public string SyncLogPublicKey { get; set; }
+
+    public int TotalChannels { get; set; }
+    public int InsertedChannels { get; set; }
+    public int UpdatedChannels { get; set; }
+    public int DeactivatedChannels { get; set; }
+
+    public int TotalStreams { get; set; }
+    public int InsertedStreams { get; set; }
+    public int UpdatedStreams { get; set; }
+    public int DeactivatedStreams { get; set; }
+
+    public string Message { get; set; }
+}
+
+============================================================
+FILE: iptv.Services/_IptvSync/IptvSyncService.cs
+============================================================
+using System.Security.Cryptography;
+using System.Text;
+using iptv.Domain.Collections;
+using iptv.Domain.Repositories.Contracts;
+using iptv.Services._IptvNotifier.Contracts;
+using iptv.Services._IptvProvider.Contracts;
+using iptv.Services._IptvProvider.DTOs.Results;
+using iptv.Services._IptvSync.Contracts;
+using iptv.Services._IptvSync.DTOs.Results;
+using Microsoft.Extensions.Logging;
+using MongoDB.Driver;
+using MongoDB.Driver.Linq;
+using Utilities.Constants;
+
+namespace iptv.Services._IptvSync;
+
+public class IptvSyncService(
+    IIptvProviderRepository _iptvProviderRepository,
+    IIptvProviderService _iptvProviderService,
+    IChannelRepository _channelRepository,
+    IStreamRepository _streamRepository,
+    ISyncLogRepository _syncLogRepository,
+    IIptvEventPublisher _eventPublisher,
+    ILogger<IptvSyncService> _logger)
+    : IIptvSyncService, RegisterMode.IScopedDependency
+{
+    public async Task<List<IptvSyncResult>> SyncAllProvidersAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var providers = await _iptvProviderService
+            .GetActiveProvidersAsync(cancellationToken);
+
+        var results = new List<IptvSyncResult>();
+
+        foreach (var provider in providers)
+        {
+            try
+            {
+                results.Add(
+                    await SyncProviderInternalAsync(
+                        provider,
+                        cancellationToken));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "IPTV sync for provider {ProviderName} failed unexpectedly.",
+                    provider.Name);
+
+                results.Add(
+                    await CaptureFailedSyncAsync(
+                        provider,
+                        ex.Message));
+            }
+        }
+
+        return results;
+    }
+
+    public async Task<IptvSyncResult> SyncProviderAsync(
+        string providerPublicKey,
+        CancellationToken cancellationToken = default)
+    {
+        var provider =
+            await _iptvProviderRepository
+                .GetByPublicKeyAsync(providerPublicKey);
+
+        return await SyncProviderInternalAsync(
+            provider,
+            cancellationToken);
+    }
+
+    #region Sync Internals
+
+    private async Task<IptvSyncResult> SyncProviderInternalAsync(
+        IptvProviders provider,
+        CancellationToken cancellationToken)
+    {
+        var syncLog = new SyncLogs
+        {
+            ProviderPublicKey = provider.PublicKey,
+            ProviderName = provider.Name,
+            Status = SyncStatus.Running
+        };
+
+        await _syncLogRepository.InsertOneAsync(
+            syncLog,
+            cancellationToken);
+
+        List<ExternalChannel> externalChannels;
+
+        try
+        {
+            externalChannels =
+                await _iptvProviderService
+                    .FetchChannelsAsync(
+                        provider,
+                        cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to fetch channels from provider {ProviderName}. Existing data is left untouched.",
+                provider.Name);
+
+            return await CompleteFailedSyncAsync(
+                provider,
+                syncLog,
+                $"Channel fetch failed: {ex.Message}",
+                cancellationToken);
+        }
+
+        List<ExternalStream> externalStreams = [];
+
+        var streamsFetchSucceeded = true;
+
+        if (!string.IsNullOrWhiteSpace(provider.StreamsEndpoint)
+            || provider.Kind == ProviderKind.Pluto)
+        {
+            try
+            {
+                externalStreams =
+                    await _iptvProviderService
+                        .FetchStreamsAsync(
+                            provider,
+                            cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                streamsFetchSucceeded = false;
+
+                _logger.LogWarning(
+                    ex,
+                    "Failed to fetch streams from provider {ProviderName}. Streams are left untouched.",
+                    provider.Name);
+
+                syncLog.Message =
+                    $"Stream fetch failed: {ex.Message}";
+            }
+        }
+
+        var logosByExternalChannelId =
+            await FetchLogosIfNeededAsync(
+                provider,
+                externalChannels,
+                cancellationToken);
+
+        // ---------------------------------------------------------
+        // Channel:
+        // Quality is NOT part of Channel identity.
+        // One external channel = one local Channel.
+        // ---------------------------------------------------------
+
+        var channelStats =
+            await SyncChannelsAsync(
+                provider,
+                externalChannels,
+                logosByExternalChannelId,
+                cancellationToken);
+
+        var localChannelIdByExternalId =
+            (await _channelRepository
+                .AsQueryable()
+                .Where(q =>
+                    q.ProviderPublicKey == provider.PublicKey)
+                .Select(q => new
+                {
+                    q.ExternalId,
+                    q.ChannelId
+                })
+                .ToListAsync(cancellationToken))
+            .ToDictionary(
+                q => q.ExternalId,
+                q => q.ChannelId);
+
+        // ---------------------------------------------------------
+        // Stream:
+        // Multiple qualities can belong to the same Channel.
+        // ---------------------------------------------------------
+
+        var streamStats = streamsFetchSucceeded
+            ? await SyncStreamsAsync(
+                provider,
+                externalStreams,
+                localChannelIdByExternalId,
+                cancellationToken)
+            : new SyncStats();
+
+        syncLog.Status = streamsFetchSucceeded
+            ? SyncStatus.Success
+            : SyncStatus.PartialSuccess;
+
+        if (syncLog.Status != SyncStatus.Success
+            && string.IsNullOrEmpty(syncLog.Message))
+        {
+            syncLog.Message =
+                "Streams endpoint failed; channels synced successfully.";
+        }
+
+        syncLog.TotalChannels = channelStats.Total;
+        syncLog.InsertedChannels = channelStats.Inserted;
+        syncLog.UpdatedChannels = channelStats.Updated;
+        syncLog.DeactivatedChannels = channelStats.Deactivated;
+
+        syncLog.TotalStreams = streamStats.Total;
+        syncLog.InsertedStreams = streamStats.Inserted;
+        syncLog.UpdatedStreams = streamStats.Updated;
+        syncLog.DeactivatedStreams = streamStats.Deactivated;
+
+        syncLog.EndMoment = DateTime.UtcNow;
+
+        await _syncLogRepository.ReplaceOneAsync(
+            syncLog,
+            cancellationToken);
+
+        await MarkProviderSyncAsync(
+            provider,
+            syncLog.Status.ToString(),
+            cancellationToken);
+
+        await _eventPublisher.PublishSyncCompletedAsync(
+            syncLog,
+            cancellationToken);
+
+        return MapToResult(
+            provider,
+            syncLog);
+    }
+
+    private async Task<Dictionary<string, string>>
+        FetchLogosIfNeededAsync(
+            IptvProviders provider,
+            List<ExternalChannel> externalChannels,
+            CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(provider.LogosEndpoint)
+            || externalChannels.All(q => !string.IsNullOrWhiteSpace(q.Logo)))
+        {
+            return [];
+        }
+
+        try
+        {
+            var logos =
+                await _iptvProviderService
+                    .FetchLogosAsync(
+                        provider,
+                        cancellationToken);
+
+            return logos
+                .Where(q =>
+                    !string.IsNullOrWhiteSpace(q.Channel)
+                    && !string.IsNullOrWhiteSpace(q.Logo))
+                .GroupBy(q => q.Channel)
+                .ToDictionary(
+                    q => q.Key,
+                    q => q.First().Logo);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to fetch logos from provider {ProviderName}. Continuing without logos.",
+                provider.Name);
+
+            return [];
+        }
+    }
+
+    private async Task<SyncStats> SyncChannelsAsync(
+        IptvProviders provider,
+        List<ExternalChannel> externalChannels,
+        Dictionary<string, string> logosByExternalChannelId,
+        CancellationToken cancellationToken)
+    {
+        var stats = new SyncStats();
+
+        // ---------------------------------------------------------
+        // One External Channel ID = One Channel.
+        // Quality is completely ignored here.
+        // ---------------------------------------------------------
+
+        var normalizedChannels =
+            externalChannels
+                .Where(q =>
+                    !string.IsNullOrWhiteSpace(q.Id)
+                    && !string.IsNullOrWhiteSpace(q.Name))
+                .GroupBy(q => q.Id.Trim())
+                .Select(q => q.First())
+                .Select(q =>
+                    NormalizeChannel(
+                        q,
+                        logosByExternalChannelId))
+                .ToList();
+
+        stats.Total = normalizedChannels.Count;
+
+        var normalizedByExternalId =
+            normalizedChannels.ToDictionary(q => q.ExternalId);
+
+        var existingChannels =
+            await _channelRepository
+                .GetByProviderAsync(
+                    provider.PublicKey,
+                    cancellationToken);
+
+        var existingByExternalId =
+            existingChannels.ToDictionary(q => q.ExternalId);
+
+        var toInsert = new List<Channels>();
+
+        foreach (var normalized in normalizedChannels)
+        {
+            if (!existingByExternalId.TryGetValue(
+                    normalized.ExternalId,
+                    out var existing))
+            {
+                normalized.ProviderPublicKey =
+                    provider.PublicKey;
+
+                toInsert.Add(normalized);
+
+                stats.Inserted++;
+
+                continue;
+            }
+
+            if (existing.DataHash == normalized.DataHash
+                && !existing.Inactive)
+            {
+                continue;
+            }
+
+            var update =
+                Builders<Channels>.Update
+                    .Set(q => q.Name, normalized.Name)
+                    .Set(q => q.ImageUri, normalized.ImageUri)
+                    .Set(q => q.Country, normalized.Country)
+                    .Set(q => q.Category, normalized.Category)
+                    .Set(q => q.DataHash, normalized.DataHash)
+                    .Set(q => q.Inactive, false)
+                    .Set(q => q.ModifiedMoment, DateTime.UtcNow);
+
+            await _channelRepository.FindOneAndUpdateAsync(
+                q => q.Id == existing.Id,
+                update,
+                cancellationToken);
+
+            stats.Updated++;
+        }
+
+        if (toInsert.Count > 0)
+        {
+            await _channelRepository.InsertManyAsync(
+                toInsert,
+                cancellationToken);
+        }
+
+        var removedIds =
+            existingChannels
+                .Where(q =>
+                    !q.Inactive
+                    && !normalizedByExternalId.ContainsKey(
+                        q.ExternalId))
+                .Select(q => q.Id)
+                .ToList();
+
+        if (removedIds.Count > 0)
+        {
+            var deactivate =
+                Builders<Channels>.Update
+                    .Set(q => q.Inactive, true)
+                    .Set(q => q.ModifiedMoment, DateTime.UtcNow);
+
+            await _channelRepository.UpdateManyAsync(
+                q => removedIds.Contains(q.Id),
+                deactivate,
+                cancellationToken);
+
+            stats.Deactivated = removedIds.Count;
+        }
+
+        return stats;
+    }
+
+    private async Task<SyncStats> SyncStreamsAsync(
+        IptvProviders provider,
+        List<ExternalStream> externalStreams,
+        Dictionary<string, string> localChannelIdByExternalId,
+        CancellationToken cancellationToken)
+    {
+        var stats = new SyncStats();
+
+        var normalizedStreams =
+            externalStreams
+                .Where(q =>
+                    !string.IsNullOrWhiteSpace(q.Url)
+                    && !string.IsNullOrWhiteSpace(q.Channel))
+                .GroupBy(q =>
+                    $"{q.Channel.Trim()}|{q.Url.Trim()}|{q.UserAgent ?? string.Empty}|{q.Referrer ?? string.Empty}")
+                .Select(q => q.First())
+                .Select(q =>
+                {
+                    var normalizedQuality =
+                        NormalizeQualityString(q.Quality);
+
+                    var stream =
+                        NormalizeStream(
+                            q,
+                            normalizedQuality);
+
+                    // -------------------------------------------------
+                    // IMPORTANT:
+                    // Quality is NOT part of the Channel ID.
+                    //
+                    // 720p  -> irib_tv3
+                    // 1080p -> irib_tv3
+                    // -------------------------------------------------
+
+                    var targetChannelExternalId =
+                        q.Channel.Trim();
+
+                    return (
+                        Stream: stream,
+                        ExternalChannelId:
+                        targetChannelExternalId);
+                })
+                .Where(q =>
+                    localChannelIdByExternalId
+                        .ContainsKey(q.ExternalChannelId))
+                .ToList();
+
+        stats.Total = normalizedStreams.Count;
+
+        var normalizedByExternalId =
+            normalizedStreams.ToDictionary(q => q.Stream.ExternalId);
+
+        var existingStreams =
+            await _streamRepository
+                .GetByProviderAsync(
+                    provider.PublicKey,
+                    cancellationToken);
+
+        var existingByExternalId =
+            existingStreams.ToDictionary(q => q.ExternalId);
+
+        var toInsert = new List<Streams>();
+
+        foreach (var (normalized, externalChannelId)
+                 in normalizedStreams)
+        {
+            if (!existingByExternalId.TryGetValue(
+                    normalized.ExternalId,
+                    out var existing))
+            {
+                normalized.ProviderPublicKey =
+                    provider.PublicKey;
+
+                normalized.ChannelId =
+                    localChannelIdByExternalId[
+                        externalChannelId];
+
+                toInsert.Add(normalized);
+
+                stats.Inserted++;
+
+                continue;
+            }
+
+            if (existing.DataHash == normalized.DataHash
+                && !existing.Inactive
+                && existing.ChannelId ==
+                localChannelIdByExternalId[
+                    externalChannelId])
+            {
+                continue;
+            }
+
+            var update =
+                Builders<Streams>.Update
+                    .Set(q => q.Name, normalized.Name)
+                    .Set(
+                        q => q.ChannelId,
+                        localChannelIdByExternalId[
+                            externalChannelId])
+                    .Set(q => q.StreamUri, normalized.StreamUri)
+                    .Set(q => q.UserAgent, normalized.UserAgent)
+                    .Set(q => q.Referer, normalized.Referer)
+                    .Set(q => q.Type, normalized.Type)
+                    .Set(q => q.Quality, normalized.Quality)
+                    .Set(q => q.QualityRank, normalized.QualityRank)
+                    .Set(q => q.DataHash, normalized.DataHash)
+                    .Set(q => q.Inactive, false)
+                    .Set(q => q.ModifiedMoment, DateTime.UtcNow);
+
+            await _streamRepository.FindOneAndUpdateAsync(
+                q => q.Id == existing.Id,
+                update,
+                cancellationToken);
+
+            stats.Updated++;
+        }
+
+        if (toInsert.Count > 0)
+        {
+            await _streamRepository.InsertManyAsync(
+                toInsert,
+                cancellationToken);
+        }
+
+        var removedIds =
+            existingStreams
+                .Where(q =>
+                    !q.Inactive
+                    && !normalizedByExternalId.ContainsKey(
+                        q.ExternalId))
+                .Select(q => q.Id)
+                .ToList();
+
+        if (removedIds.Count > 0)
+        {
+            var deactivate =
+                Builders<Streams>.Update
+                    .Set(q => q.Inactive, true)
+                    .Set(q => q.ModifiedMoment, DateTime.UtcNow);
+
+            await _streamRepository.UpdateManyAsync(
+                q => removedIds.Contains(q.Id),
+                deactivate,
+                cancellationToken);
+
+            stats.Deactivated = removedIds.Count;
+        }
+
+        return stats;
+    }
+
+    private async Task<IptvSyncResult> CompleteFailedSyncAsync(
+        IptvProviders provider,
+        SyncLogs syncLog,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        syncLog.Status = SyncStatus.Failed;
+        syncLog.Message = message;
+        syncLog.EndMoment = DateTime.UtcNow;
+
+        await _syncLogRepository.ReplaceOneAsync(
+            syncLog,
+            cancellationToken);
+
+        await MarkProviderSyncAsync(
+            provider,
+            nameof(SyncStatus.Failed),
+            cancellationToken);
+
+        await _eventPublisher.PublishSyncCompletedAsync(
+            syncLog,
+            cancellationToken);
+
+        return MapToResult(
+            provider,
+            syncLog);
+    }
+
+    private async Task<IptvSyncResult> CaptureFailedSyncAsync(
+        IptvProviders provider,
+        string message)
+    {
+        var syncLog = new SyncLogs
+        {
+            ProviderPublicKey = provider.PublicKey,
+            ProviderName = provider.Name,
+            Status = SyncStatus.Failed,
+            Message = message,
+            EndMoment = DateTime.UtcNow
+        };
+
+        await _syncLogRepository.InsertOneAsync(syncLog);
+
+        await MarkProviderSyncAsync(
+            provider,
+            nameof(SyncStatus.Failed),
+            CancellationToken.None);
+
+        return MapToResult(
+            provider,
+            syncLog);
+    }
+
+    private async Task MarkProviderSyncAsync(
+        IptvProviders provider,
+        string status,
+        CancellationToken cancellationToken)
+    {
+        var update =
+            Builders<IptvProviders>.Update
+                .Set(
+                    q => q.LastSyncMoment,
+                    DateTime.UtcNow)
+                .Set(
+                    q => q.LastSyncStatus,
+                    status);
+
+        await _iptvProviderRepository
+            .FindOneAndUpdateAsync(
+                q => q.PublicKey == provider.PublicKey,
+                update,
+                cancellationToken);
+    }
+
+    #endregion
+
+    #region Normalization & Hashing
+
+    private static Channels NormalizeChannel(
+        ExternalChannel external,
+        Dictionary<string, string> logosByExternalChannelId)
+    {
+        var externalId = external.Id.Trim();
+
+        var name = external.Name.Trim();
+
+        var country =
+            (external.Country ?? string.Empty)
+            .Trim()
+            .ToUpperInvariant();
+
+        var category =
+            external.Categories?
+                .FirstOrDefault()?
+                .Trim()
+            ?? "General";
+
+        var imageUri =
+            !string.IsNullOrWhiteSpace(external.Logo)
+                ? external.Logo.Trim()
+                : logosByExternalChannelId
+                      .GetValueOrDefault(externalId)?
+                      .Trim()
+                  ?? string.Empty;
+
+        return new Channels
+        {
+            ExternalId = externalId,
+
+            Name = name,
+
+            Country = country,
+
+            Category = category,
+
+            ImageUri = imageUri,
+
+            DataHash = ComputeHash(
+                externalId,
+                name,
+                country,
+                category,
+                imageUri)
+        };
+    }
+
+    private static Streams NormalizeStream(
+        ExternalStream external,
+        string normalizedQuality)
+    {
+        var url = external.Url.Trim();
+
+        var userAgent =
+            external.UserAgent?.Trim()
+            ?? string.Empty;
+
+        var referer =
+            external.Referrer?.Trim()
+            ?? string.Empty;
+
+        var type =
+            url.Contains(
+                ".m3u8",
+                StringComparison.OrdinalIgnoreCase)
+                ? "hls"
+                : "direct";
+
+        return new Streams
+        {
+            ExternalId = ComputeHash(
+                url,
+                userAgent,
+                referer),
+
+            Name =
+                $"{url} ({normalizedQuality})",
+
+            StreamUri = url,
+
+            UserAgent = userAgent,
+
+            Referer = referer,
+
+            Quality = normalizedQuality,
+
+            QualityRank =
+                GetQualityRank(normalizedQuality),
+
+            Type = type,
+
+            IsHealthy = true,
+
+            DataHash = ComputeHash(
+                url,
+                userAgent,
+                referer,
+                type,
+                normalizedQuality)
+        };
+    }
+
+    private static string NormalizeQualityString(
+        string quality)
+    {
+        if (string.IsNullOrWhiteSpace(quality))
+            return "Auto";
+
+        var q = quality.Trim().ToLowerInvariant();
+
+        if (q is "hls" or "http" or "https" or "direct")
+            return "Auto";
+
+        if (q == "2160" || q == "2160p")
+            return "2160p";
+
+        if (q == "1440" || q == "1440p")
+            return "1440p";
+
+        if (q == "1080" || q == "1080p")
+            return "1080p";
+
+        if (q == "720" || q == "720p")
+            return "720p";
+
+        if (q == "576" || q == "576p")
+            return "576p";
+
+        if (q == "480" || q == "480p")
+            return "480p";
+
+        if (q == "360" || q == "360p")
+            return "360p";
+
+        if (q == "240" || q == "240p")
+            return "240p";
+
+        return "Auto";
+    }
+
+    private static int GetQualityRank(
+        string quality)
+    {
+        return quality.ToLowerInvariant() switch
+        {
+            "2160p" => 2160,
+            "1440p" => 1440,
+            "1080p" => 1080,
+            "720p" => 720,
+            "576p" => 576,
+            "480p" => 480,
+            "360p" => 360,
+            "240p" => 240,
+            _ => 0
+        };
+    }
+
+    private static string ComputeHash(
+        params string[] values)
+    {
+        var raw =
+            string.Join(
+                "|",
+                values.Select(q => q ?? string.Empty));
+
+        var hashBytes =
+            SHA256.HashData(
+                Encoding.UTF8.GetBytes(raw));
+
+        return Convert.ToHexString(
+            hashBytes);
+    }
+
+    #endregion
+
+    #region Helpers
+
+    private static IptvSyncResult MapToResult(
+        IptvProviders provider,
+        SyncLogs syncLog)
+        => new()
+        {
+            ProviderPublicKey =
+                provider.PublicKey,
+
+            ProviderName =
+                provider.Name,
+
+            Status =
+                syncLog.Status.ToString(),
+
+            SyncLogPublicKey =
+                syncLog.PublicKey,
+
+            TotalChannels =
+                syncLog.TotalChannels,
+
+            InsertedChannels =
+                syncLog.InsertedChannels,
+
+            UpdatedChannels =
+                syncLog.UpdatedChannels,
+
+            DeactivatedChannels =
+                syncLog.DeactivatedChannels,
+
+            TotalStreams =
+                syncLog.TotalStreams,
+
+            InsertedStreams =
+                syncLog.InsertedStreams,
+
+            UpdatedStreams =
+                syncLog.UpdatedStreams,
+
+            DeactivatedStreams =
+                syncLog.DeactivatedStreams,
+
+            Message =
+                syncLog.Message
+        };
+
+    private class SyncStats
+    {
+        public int Total { get; set; }
+
+        public int Inserted { get; set; }
+
+        public int Updated { get; set; }
+
+        public int Deactivated { get; set; }
+    }
+
+    #endregion
+}
+============================================================
+FILE: iptv.Services/_IptvProvider/Contracts/IIptvProviderService.cs
+============================================================
+using iptv.Domain.Collections;
+using iptv.Services._IptvProvider.DTOs.Results;
+using iptv.Services._IptvProvider.DTOs.Updates;
+using Utilities.Models.Updates;
+using Utilities.MongoDatabase.Filter;
+
+namespace iptv.Services._IptvProvider.Contracts;
+
+public interface IIptvProviderService
+{
+    Task<List<ExternalChannel>> FetchChannelsAsync(
+        IptvProviders provider,
+        CancellationToken cancellationToken);
+
+    Task<List<ExternalStream>> FetchStreamsAsync(
+        IptvProviders provider,
+        CancellationToken cancellationToken);
+
+    Task<List<ExternalLogo>> FetchLogosAsync(
+        IptvProviders provider,
+        CancellationToken cancellationToken);
+
+    Task<List<IptvProviders>> GetActiveProvidersAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<IptvProviderFilteredResult> CreateAsync(
+        IptvProviderCreateUpdate update);
+
+    Task<IptvProviderFilteredResult> EditAsync(
+        IptvProviderEditUpdate update);
+
+    Task<IptvProviderFilteredResult> GetByPublicKeyAsync(
+        GetGlobalIdUpdate publicKey);
+
+    Task<MonjoFilteredResult<IptvProviderFilteredResult>> GetAllAsync(
+        MonjoQuery query);
+
+    Task<IptvProviderFilteredResult> ActivateAsync(
+        string publicKey,
+        bool shouldActivate);
+
+    Task<string> DeleteAsync(string publicKey);
+}
+
+============================================================
+FILE: iptv.Services/_IptvProvider/DTOs/Settings/PlutoDtos.cs
+============================================================
+using System.Text.Json.Serialization;
+
+namespace iptv.Services._IptvProvider.DTOs.Settings;
+
+public class PlutoChannel
+{
+    [JsonPropertyName("_id")] public string Id { get; set; }
+    [JsonPropertyName("name")] public string Name { get; set; }
+    [JsonPropertyName("logo")] public PlutoLogo Logo { get; set; }
+    [JsonPropertyName("category")] public string Category { get; set; }
+    [JsonPropertyName("stitched")] public PlutoStitched Stitched { get; set; }
+}
+
+public class PlutoLogo
+{
+    [JsonPropertyName("path")] public string Path { get; set; }
+}
+
+public class PlutoStitched
+{
+    [JsonPropertyName("urls")] public List<PlutoStreamUrl> Urls { get; set; } = [];
+}
+
+public class PlutoStreamUrl
+{
+    [JsonPropertyName("type")] public string Type { get; set; }
+    [JsonPropertyName("url")] public string Url { get; set; }
+}
+============================================================
+FILE: iptv.Services/_IptvProvider/DTOs/Updates/IptvProviderEditUpdate.cs
+============================================================
+using Utilities.Attributes;
+
+namespace iptv.Services._IptvProvider.DTOs.Updates;
+
+public class IptvProviderEditUpdate
+{
+    [StringInputValidation] public string PublicKey { get; set; }
+
+    [StringInputValidation]public string Name { get; set; }
+    [StringInputValidation(isRequired:false)]public string BaseUrl { get; set; }
+    [StringInputValidation(isRequired:false)]public string ChannelsEndpoint { get; set; }
+    [StringInputValidation(isRequired:false)]public string StreamsEndpoint { get; set; }
+    [StringInputValidation(isRequired:false)]public string LogosEndpoint { get; set; }
+    [StringInputValidation(isRequired:false)]public string ApiKey { get; set; }
+    public bool Inactive { get; set; }
+}
+============================================================
+FILE: iptv.Services/_IptvProvider/DTOs/Updates/IptvProviderCreateUpdate.cs
+============================================================
+using iptv.Domain.Collections;
+using Utilities.Attributes;
+
+namespace iptv.Services._IptvProvider.DTOs.Updates;
+
+public class IptvProviderCreateUpdate
+{
+    [StringInputValidation(isRequired: true)]
+    public string Name { get; set; }
+    [StringInputValidation(isRequired: true)]
+    public string BaseUrl { get; set; }
+    [StringInputValidation(isRequired: true)]
+    public string ChannelsEndpoint { get; set; }
+    [StringInputValidation(isRequired: false)]
+    public string StreamsEndpoint { get; set; }
+    [StringInputValidation(isRequired: false)]
+    public string LogosEndpoint { get; set; }
+    public string ApiKey { get; set; }
+    public bool Inactive { get; set; }
+    public ProviderKind Kind { get; set; } = ProviderKind.Generic;
+    // public bool UseProxy { get; set; }
+}
+============================================================
+FILE: iptv.Services/_IptvProvider/DTOs/Results/ExternalStream.cs
+============================================================
+using System.Text.Json.Serialization;
+
+
+namespace iptv.Services._IptvProvider.DTOs.Results;
+
+public class ExternalStream
+{
+    [JsonPropertyName("channel")] public string Channel { get; set; }
+    [JsonPropertyName("url")] public string Url { get; set; }
+    [JsonPropertyName("user_agent")] public string UserAgent { get; set; }
+    [JsonPropertyName("referrer")] public string Referrer { get; set; }
+    [JsonPropertyName("quality")] public string? Quality { get; set; }
+}
+============================================================
+FILE: iptv.Services/_IptvProvider/DTOs/Results/ExternalLogo.cs
+============================================================
+using System.Text.Json.Serialization;
+
+namespace iptv.Services._IptvProvider.DTOs.Results;
+
+public class ExternalLogo
+{
+    [JsonPropertyName("channel")] public string Channel { get; set; }
+    [JsonPropertyName("url")] public string Logo { get; set; }
+}
+============================================================
+FILE: iptv.Services/_IptvProvider/DTOs/Results/IptvProviderFilteredResult.cs
+============================================================
+namespace iptv.Services._IptvProvider.DTOs.Results;
+
+public class IptvProviderFilteredResult
+{
+    public string PublicKey { get; set; }
+
+    public string Name { get; set; }
+    public string BaseUrl { get; set; }
+    public string ChannelsEndpoint { get; set; }
+    public string StreamsEndpoint { get; set; }
+    public string LogosEndpoint { get; set; }
+
+    public bool Inactive { get; set; }
+
+    public DateTime? LastSyncMoment { get; set; }
+    public string LastSyncStatus { get; set; }
+
+    public string CreatedByInfo { get; set; }
+    public DateTime CreatedMoment { get; set; }
+
+    public string ModifiedByInfo { get; set; }
+    public DateTime? ModifiedMoment { get; set; }
+}
+============================================================
+FILE: iptv.Services/_IptvProvider/DTOs/Results/ExternalChannel.cs
+============================================================
+using System.Text.Json.Serialization;
+
+namespace iptv.Services._IptvProvider.DTOs.Results;
+
+public class ExternalChannel
+{
+    [JsonPropertyName("id")] public string Id { get; set; }
+    [JsonPropertyName("name")] public string Name { get; set; }
+    [JsonPropertyName("country")] public string Country { get; set; }
+    [JsonPropertyName("categories")] public List<string> Categories { get; set; } = [];
+    [JsonPropertyName("logo")] public string Logo { get; set; }
+}
+============================================================
+FILE: iptv.Services/_IptvProvider/IptvProviderService.cs
+============================================================
+using iptv.Domain.Collections;
+using iptv.Domain.Repositories.Contracts;
+using iptv.Services._IptvProvider.Contracts;
+using iptv.Services._IptvProvider.DTOs.Results;
+using iptv.Services._IptvProvider.DTOs.Updates;
+using MongoDB.Driver;
+using MongoDB.Driver.Linq;
+using System.Net.Http.Json;
+using iptv.Services._IptvProvider.DTOs.Settings;
+using Utilities.Constants;
+using Utilities.Exceptions.Common;
+using Utilities.Models.Updates;
+using Utilities.MongoDatabase.Extensions;
+using Utilities.MongoDatabase.Filter;
+
+namespace iptv.Services._IptvProvider;
+
+public class IptvProviderService(
+    IIptvProviderRepository _iptvProviderRepository,
+    IHttpClientFactory _httpClientFactory)
+    : IIptvProviderService, RegisterMode.IScopedDependency
+{
+    public async Task<List<ExternalChannel>> FetchChannelsAsync(
+        IptvProviders provider,
+        CancellationToken cancellationToken)
+    {
+        using var httpClient = CreateHttpClient(provider);
+
+        return provider.Kind switch
+        {
+            ProviderKind.Pluto => await FetchPlutoChannelsAsync(httpClient, provider, cancellationToken),
+            _ => await FetchGenericChannelsAsync(httpClient, provider, cancellationToken)
+        };
+    }
+
+    public async Task<List<ExternalStream>> FetchStreamsAsync(
+        IptvProviders provider,
+        CancellationToken cancellationToken)
+    {
+        if (provider.Kind == ProviderKind.Pluto)
+            return await FetchPlutoStreamsAsync(provider, cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(provider.StreamsEndpoint))
+            return [];
+
+        using var httpClient = CreateHttpClient(provider);
+
+        return await FetchLargeJsonAsync<ExternalStream>(
+            httpClient, provider, provider.StreamsEndpoint, cancellationToken);
+    }
+
+    public async Task<List<ExternalLogo>> FetchLogosAsync(
+        IptvProviders provider,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(provider.LogosEndpoint))
+            return [];
+
+        using var httpClient = CreateHttpClient(provider);
+
+        return await FetchLargeJsonAsync<ExternalLogo>(
+            httpClient, provider, provider.LogosEndpoint, cancellationToken);
+    }
+
+    public async Task<List<IptvProviders>> GetActiveProvidersAsync(
+        CancellationToken cancellationToken = default)
+        => await _iptvProviderRepository.AsQueryable()
+            .Where(q => !q.Inactive)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IptvProviderFilteredResult> CreateAsync(
+        IptvProviderCreateUpdate update)
+    {
+        ValidateProviderConfiguration(update);
+        if (await _iptvProviderRepository.AsQueryable()
+                .AnyAsync(q => q.Name == update.Name && q.BaseUrl == update.BaseUrl))
+            throw new BadRequestException(
+                "An IPTV provider with this name already exists.");
+
+        ValidateUrl(nameof(update.BaseUrl), update.BaseUrl);
+        ValidateUrl(nameof(update.ChannelsEndpoint), update.ChannelsEndpoint);
+        ValidateUrl(nameof(update.StreamsEndpoint), update.StreamsEndpoint, isRequired: false);
+        ValidateUrl(nameof(update.LogosEndpoint), update.LogosEndpoint, isRequired: false);
+
+        var provider = new IptvProviders
+        {
+            Name = update.Name,
+            BaseUrl = update.BaseUrl,
+            ChannelsEndpoint = update.ChannelsEndpoint,
+            StreamsEndpoint = update.StreamsEndpoint,
+            LogosEndpoint = update.LogosEndpoint,
+            ApiKey = update.ApiKey,
+            Inactive = update.Inactive,
+            Kind = update.Kind,
+            // UseProxy = update.UseProxy
+        };
+
+        await _iptvProviderRepository.InsertOneAsync(provider);
+
+        return MapToResult(provider);
+    }
+
+    public async Task<IptvProviderFilteredResult> EditAsync(
+        IptvProviderEditUpdate update)
+    {
+        var provider =
+            await _iptvProviderRepository.GetByPublicKeyAsync(
+                update.PublicKey)
+            ?? throw new NotFoundException(
+                "IPTV provider not found.");
+
+        if (await _iptvProviderRepository
+                .AsQueryable()
+                .AnyAsync(q =>
+                    q.Name == update.Name &&
+                    q.PublicKey != update.PublicKey))
+        {
+            throw new BadRequestException(
+                "An IPTV provider with this name already exists.");
+        }
+
+        provider.Name = update.Name;
+
+        if (!string.IsNullOrWhiteSpace(update.BaseUrl))
+        {
+            ValidateUrl(
+                nameof(update.BaseUrl),
+                update.BaseUrl);
+
+            provider.BaseUrl = update.BaseUrl;
+        }
+
+        if (!string.IsNullOrWhiteSpace(update.ChannelsEndpoint))
+        {
+            ValidateUrl(
+                nameof(update.ChannelsEndpoint),
+                update.ChannelsEndpoint);
+
+            provider.ChannelsEndpoint =
+                update.ChannelsEndpoint;
+        }
+
+        if (!string.IsNullOrWhiteSpace(update.StreamsEndpoint))
+        {
+            ValidateUrl(
+                nameof(update.StreamsEndpoint),
+                update.StreamsEndpoint);
+
+            provider.StreamsEndpoint =
+                update.StreamsEndpoint;
+        }
+        else if (provider.Kind == ProviderKind.Generic)
+        {
+            provider.StreamsEndpoint = string.Empty;
+        }
+
+        if (!string.IsNullOrWhiteSpace(update.LogosEndpoint))
+        {
+            ValidateUrl(
+                nameof(update.LogosEndpoint),
+                update.LogosEndpoint);
+
+            provider.LogosEndpoint =
+                update.LogosEndpoint;
+        }
+        else if (provider.Kind == ProviderKind.Generic)
+        {
+            provider.LogosEndpoint = string.Empty;
+        }
+
+        if (!string.IsNullOrWhiteSpace(update.ApiKey))
+        {
+            provider.ApiKey = update.ApiKey;
+        }
+
+        provider.Inactive = update.Inactive;
+
+        await _iptvProviderRepository
+            .ReplaceOneAsync(provider);
+
+        return MapToResult(provider);
+    }
+
+
+    public async Task<IptvProviderFilteredResult> GetByPublicKeyAsync(GetGlobalIdUpdate publicKey)
+    {
+        var provider =
+            await _iptvProviderRepository.GetByPublicKeyAsync(publicKey.Id);
+        return MapToResult(provider);
+    }
+
+    public async Task<MonjoFilteredResult<IptvProviderFilteredResult>> GetAllAsync(
+        MonjoQuery query)
+    {
+        query.WithBase<IptvProviderFilteredResult>();
+
+        return await _iptvProviderRepository
+            .AsQueryable()
+            .Apply(query.Where, nameof(IptvProviderFilteredResult))
+            .Apply(query.Order, nameof(IptvProviderFilteredResult))
+            .Select(provider => new IptvProviderFilteredResult
+            {
+                PublicKey = provider.PublicKey,
+                Name = provider.Name,
+                BaseUrl = provider.BaseUrl,
+                ChannelsEndpoint = provider.ChannelsEndpoint,
+                StreamsEndpoint = provider.StreamsEndpoint,
+                LogosEndpoint = provider.LogosEndpoint,
+                Inactive = provider.Inactive,
+                LastSyncMoment = provider.LastSyncMoment,
+                LastSyncStatus = provider.LastSyncStatus,
+                CreatedByInfo = provider.CreatedByInfo,
+                CreatedMoment = provider.CreatedMoment,
+                ModifiedByInfo = provider.ModifiedByInfo,
+                ModifiedMoment = provider.ModifiedMoment
+            })
+            .ExecuteAsync(query, nameof(IptvProviderFilteredResult));
+    }
+
+    public async Task<IptvProviderFilteredResult> ActivateAsync(
+        string publicKey,
+        bool shouldActivate)
+    {
+        var provider =
+            await _iptvProviderRepository.GetByPublicKeyAsync(publicKey);
+
+        provider.Inactive = !shouldActivate;
+
+        var update = Builders<IptvProviders>.Update
+            .Set(q => q.Inactive, provider.Inactive);
+
+        await _iptvProviderRepository.FindOneAndUpdateAsync(
+            q => q.PublicKey == publicKey,
+            update,
+            CancellationToken.None);
+
+        return MapToResult(provider);
+    }
+
+    public async Task<string> DeleteAsync(string publicKey)
+    {
+        var provider =
+            await _iptvProviderRepository.GetByPublicKeyAsync(publicKey);
+
+        await _iptvProviderRepository.DeleteOneAsync(q => q.PublicKey == provider.PublicKey);
+
+        return provider.PublicKey;
+    }
+
+    #region Private Methods
+
+    private static readonly System.Text.Json.JsonSerializerOptions ExternalJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    private static void ValidateProviderConfiguration(
+        IptvProviderCreateUpdate update)
+    {
+        if (update.Kind == ProviderKind.Pluto)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(update.ChannelsEndpoint))
+        {
+            throw new BadRequestException(
+                "ChannelsEndpoint is required for Generic providers.");
+        }
+
+        if (update.ChannelsEndpoint.Contains(
+                ".m3u8",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BadRequestException(
+                "Generic provider ChannelsEndpoint cannot be an M3U8 stream URL.");
+        }
+    }
+
+    private static void ValidateUrl(string fieldName, string value, bool isRequired = true)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            if (isRequired)
+                throw new BadRequestException($"{fieldName} is required.");
+            return;
+        }
+
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new BadRequestException(
+                $"{fieldName} is not a valid absolute URL (must start with http:// or https://): '{value}'");
+        }
+    }
+
+    private static async Task<List<ExternalChannel>> FetchGenericChannelsAsync(
+        HttpClient httpClient, IptvProviders provider, CancellationToken cancellationToken)
+    {
+        const int maxAttempts = 3;
+        Exception lastError = null;
+
+        var timeoutSeconds = provider.FetchTimeoutSeconds > 0
+            ? provider.FetchTimeoutSeconds
+            : 60;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+
+                var channels = await httpClient.GetFromJsonAsync<List<ExternalChannel>>(
+                    provider.ChannelsEndpoint, ExternalJsonOptions, cts.Token);
+
+                return channels ?? [];
+            }
+            catch (Exception ex) when (attempt < maxAttempts)
+            {
+                lastError = ex;
+                await Task.Delay(TimeSpan.FromSeconds(attempt * 5), cancellationToken);
+            }
+        }
+
+        throw lastError!;
+    }
+
+    private static async Task<List<T>> FetchLargeJsonAsync<T>(
+        HttpClient httpClient,
+        IptvProviders provider,
+        string url,
+        CancellationToken cancellationToken)
+    {
+        using var requestCts = provider.FetchTimeoutSeconds > 0
+            ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
+            : null;
+
+        if (requestCts != null)
+            requestCts.CancelAfter(TimeSpan.FromSeconds(provider.FetchTimeoutSeconds));
+
+        var effectiveToken = requestCts?.Token ?? cancellationToken;
+
+        using var response = await httpClient.GetAsync(
+            url, HttpCompletionOption.ResponseHeadersRead, effectiveToken);
+
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync(effectiveToken);
+
+        var result = await System.Text.Json.JsonSerializer.DeserializeAsync<List<T>>(
+            stream, ExternalJsonOptions, effectiveToken);
+
+        return result ?? [];
+    }
+
+    private HttpClient CreateHttpClient(IptvProviders provider)
+    {
+        // var clientName = provider.UseProxy ? "IptvProvider-Proxied" : "IptvProvider";
+        var httpClient = _httpClientFactory.CreateClient("IptvProvider");
+
+        if (!string.IsNullOrWhiteSpace(provider.BaseUrl))
+            httpClient.BaseAddress = new Uri(provider.BaseUrl);
+
+        if (!string.IsNullOrWhiteSpace(provider.ApiKey))
+            httpClient.DefaultRequestHeaders.Add("X-Api-Key", provider.ApiKey);
+
+        if (!httpClient.DefaultRequestHeaders.Contains("User-Agent"))
+            httpClient.DefaultRequestHeaders.Add("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+
+        return httpClient;
+    }
+
+    private static IptvProviderFilteredResult MapToResult(
+        IptvProviders provider)
+    {
+        return new IptvProviderFilteredResult
+        {
+            PublicKey = provider.PublicKey,
+            Name = provider.Name,
+            BaseUrl = provider.BaseUrl,
+            ChannelsEndpoint = provider.ChannelsEndpoint,
+            StreamsEndpoint = provider.StreamsEndpoint,
+            LogosEndpoint = provider.LogosEndpoint,
+            Inactive = provider.Inactive,
+            LastSyncMoment = provider.LastSyncMoment,
+            LastSyncStatus = provider.LastSyncStatus,
+            CreatedByInfo = provider.CreatedByInfo,
+            CreatedMoment = provider.CreatedMoment,
+            ModifiedByInfo = provider.ModifiedByInfo,
+            ModifiedMoment = provider.ModifiedMoment
+        };
+    }
+
+    #endregion
+
+    #region Private Methods - Pluto
+
+    private static readonly Dictionary<
+            string,
+            (DateTime FetchedAt, List<PlutoChannel> Data)>
+        _plutoCache = new();
+
+    private static readonly SemaphoreSlim
+        _plutoCacheLock = new(1, 1);
+
+    private static readonly TimeSpan
+        PlutoCacheTtl = TimeSpan.FromMinutes(20);
+
+    private async Task<List<PlutoChannel>> FetchPlutoRawAsync(
+        IptvProviders provider,
+        CancellationToken cancellationToken)
+    {
+        await _plutoCacheLock.WaitAsync(cancellationToken);
+
+        try
+        {
+            if (_plutoCache.TryGetValue(
+                    provider.PublicKey,
+                    out var cached)
+                && DateTime.UtcNow - cached.FetchedAt < PlutoCacheTtl)
+            {
+                return cached.Data;
+            }
+
+            using var httpClient =
+                CreateHttpClient(provider);
+
+            var raw =
+                await httpClient.GetFromJsonAsync<List<PlutoChannel>>(
+                    provider.ChannelsEndpoint,
+                    cancellationToken)
+                ?? [];
+
+            _plutoCache[provider.PublicKey] =
+                (DateTime.UtcNow, raw);
+
+            return raw;
+        }
+        finally
+        {
+            _plutoCacheLock.Release();
+        }
+    }
+
+    private async Task<List<ExternalChannel>>
+        FetchPlutoChannelsAsync(
+            HttpClient httpClient,
+            IptvProviders provider,
+            CancellationToken cancellationToken)
+    {
+        var raw =
+            await FetchPlutoRawAsync(
+                provider,
+                cancellationToken);
+
+        return raw
+            .Where(c =>
+                !string.IsNullOrWhiteSpace(c.Id)
+                && !string.IsNullOrWhiteSpace(c.Name))
+            .Select(c => new ExternalChannel
+            {
+                Id = c.Id,
+                Name = c.Name,
+                Logo = c.Logo?.Path,
+                Categories =
+                    string.IsNullOrWhiteSpace(c.Category)
+                        ? []
+                        : [c.Category],
+                Country = "US"
+            })
+            .ToList();
+    }
+
+    private async Task<List<ExternalStream>>
+        FetchPlutoStreamsAsync(
+            IptvProviders provider,
+            CancellationToken cancellationToken)
+    {
+        var raw =
+            await FetchPlutoRawAsync(
+                provider,
+                cancellationToken);
+
+        using var httpClient =
+            CreateHttpClient(provider);
+
+        var streams = new List<ExternalStream>();
+
+        foreach (var channel in raw)
+        {
+            if (string.IsNullOrWhiteSpace(channel.Id))
+                continue;
+
+            var hlsUrl =
+                channel.Stitched?.Urls?
+                    .FirstOrDefault(u => string.Equals(
+                        u.Type,
+                        "hls",
+                        StringComparison.OrdinalIgnoreCase))
+                    ?.Url
+                ?? channel.Stitched?.Urls?
+                    .FirstOrDefault()?.Url;
+
+            if (string.IsNullOrWhiteSpace(hlsUrl))
+                continue;
+
+            try
+            {
+                var variants =
+                    await ExtractHlsVariantsAsync(
+                        httpClient,
+                        hlsUrl,
+                        cancellationToken);
+
+                if (variants.Count > 0)
+                {
+                    foreach (var variant in variants)
+                    {
+                        streams.Add(new ExternalStream
+                        {
+                            Channel = channel.Id,
+                            Url = variant.Url,
+                            Quality = variant.Quality
+                        });
+                    }
+
+                    continue;
+                }
+            }
+            catch
+            {
+                // If the master playlist cannot be read,
+                // keep the original HLS stream as Auto.
+            }
+
+            streams.Add(new ExternalStream
+            {
+                Channel = channel.Id,
+                Url = hlsUrl,
+                Quality = "Auto"
+            });
+        }
+
+        return streams;
+    }
+
+    private static async Task<List<HlsVariant>>
+        ExtractHlsVariantsAsync(
+            HttpClient httpClient,
+            string masterUrl,
+            CancellationToken cancellationToken)
+    {
+        using var response =
+            await httpClient.GetAsync(
+                masterUrl,
+                cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+
+        var playlist =
+            await response.Content.ReadAsStringAsync(
+                cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(playlist))
+            return [];
+
+        var lines =
+            playlist
+                .Split(
+                    ['\r', '\n'],
+                    StringSplitOptions.RemoveEmptyEntries);
+
+        var variants = new List<HlsVariant>();
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i].Trim();
+
+            if (!line.StartsWith(
+                    "#EXT-X-STREAM-INF:",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var attributes =
+                line["#EXT-X-STREAM-INF:".Length..];
+
+            var resolution =
+                GetHlsAttribute(
+                    attributes,
+                    "RESOLUTION");
+
+            var bandwidth =
+                GetHlsAttribute(
+                    attributes,
+                    "BANDWIDTH");
+
+            string? variantUrl = null;
+
+            for (var j = i + 1; j < lines.Length; j++)
+            {
+                var next = lines[j].Trim();
+
+                if (string.IsNullOrWhiteSpace(next))
+                    continue;
+
+                if (next.StartsWith("#"))
+                    continue;
+
+                variantUrl = next;
+
+                i = j;
+                break;
+            }
+
+            if (string.IsNullOrWhiteSpace(variantUrl))
+                continue;
+
+            var absoluteUrl =
+                ResolveHlsUrl(
+                    masterUrl,
+                    variantUrl);
+
+            var quality =
+                ResolveQuality(
+                    resolution,
+                    bandwidth);
+
+            variants.Add(new HlsVariant
+            {
+                Url = absoluteUrl,
+                Quality = quality
+            });
+        }
+
+        return variants
+            .GroupBy(v =>
+                    $"{v.Quality}|{v.Url}",
+                StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .OrderByDescending(v =>
+                GetQualityRank(v.Quality))
+            .ToList();
+    }
+
+    private static string? GetHlsAttribute(
+        string attributes,
+        string attributeName)
+    {
+        var parts =
+            attributes.Split(
+                ',',
+                StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var part in parts)
+        {
+            var separator =
+                part.IndexOf('=');
+
+            if (separator <= 0)
+                continue;
+
+            var key =
+                part[..separator].Trim();
+
+            if (!string.Equals(
+                    key,
+                    attributeName,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return part[(separator + 1)..]
+                .Trim()
+                .Trim('"');
+        }
+
+        return null;
+    }
+
+    private static string ResolveQuality(
+        string? resolution,
+        string? bandwidth)
+    {
+        if (!string.IsNullOrWhiteSpace(resolution))
+        {
+            var xIndex =
+                resolution.IndexOf(
+                    'x',
+                    StringComparison.OrdinalIgnoreCase);
+
+            if (xIndex > 0
+                && int.TryParse(
+                    resolution[(xIndex + 1)..],
+                    out var height))
+            {
+                return $"{height}p";
+            }
+        }
+
+        // Some playlists don't expose RESOLUTION.
+        // Use bandwidth only as a fallback.
+        if (long.TryParse(
+                bandwidth,
+                out var bitrate))
+        {
+            return bitrate switch
+            {
+                >= 8_000_000 => "1080p",
+                >= 4_000_000 => "720p",
+                >= 2_000_000 => "480p",
+                >= 1_000_000 => "360p",
+                _ => "Auto"
+            };
+        }
+
+        return "Auto";
+    }
+
+    private static int GetQualityRank(
+        string quality)
+    {
+        return quality.ToLowerInvariant() switch
+        {
+            "2160p" => 2160,
+            "1440p" => 1440,
+            "1080p" => 1080,
+            "720p" => 720,
+            "576p" => 576,
+            "480p" => 480,
+            "360p" => 360,
+            "240p" => 240,
+            _ => 0
+        };
+    }
+
+    private static string ResolveHlsUrl(
+        string masterUrl,
+        string variantUrl)
+    {
+        if (Uri.TryCreate(
+                variantUrl,
+                UriKind.Absolute,
+                out var absolute))
+        {
+            return absolute.ToString();
+        }
+
+        if (!Uri.TryCreate(
+                masterUrl,
+                UriKind.Absolute,
+                out var master))
+        {
+            return variantUrl;
+        }
+
+        return new Uri(
+            master,
+            variantUrl).ToString();
+    }
+
+    private sealed class HlsVariant
+    {
+        public string Url { get; set; } = string.Empty;
+
+        public string Quality { get; set; } = "Auto";
+    }
+
+    #endregion
+}
+============================================================
+FILE: iptv.Services/_SyncLog/Contracts/ISyncLogService.cs
+============================================================
+using iptv.Services._SyncLog.DTOs.Results;
+using Utilities.MongoDatabase.Filter;
+
+namespace iptv.Services._SyncLog.Contracts;
+
+public interface ISyncLogService
+{
+    Task<MonjoFilteredResult<SyncLogFilteredResult>> GetAllAsync(MonjoQuery query);
+
+    Task<SyncLogFilteredResult> GetByPublicKeyAsync(string publicKey);
+}
+
+============================================================
+FILE: iptv.Services/_SyncLog/DTOs/Results/SyncLogFilteredResult.cs
+============================================================
+namespace iptv.Services._SyncLog.DTOs.Results;
+
+public class SyncLogFilteredResult
+{
+    public string PublicKey { get; set; }
+    public string ProviderPublicKey { get; set; }
+    public string ProviderName { get; set; }
+    public string Status { get; set; }
+
+    public int TotalChannels { get; set; }
+    public int InsertedChannels { get; set; }
+    public int UpdatedChannels { get; set; }
+    public int DeactivatedChannels { get; set; }
+
+    public int TotalStreams { get; set; }
+    public int InsertedStreams { get; set; }
+    public int UpdatedStreams { get; set; }
+    public int DeactivatedStreams { get; set; }
+
+    public string Message { get; set; }
+
+    public DateTime StartMoment { get; set; }
+    public DateTime? EndMoment { get; set; }
+}
+
+============================================================
+FILE: iptv.Services/_SyncLog/SyncLogService.cs
+============================================================
+using iptv.Domain.Collections;
+using iptv.Domain.Repositories.Contracts;
+using iptv.Services._SyncLog.Contracts;
+using iptv.Services._SyncLog.DTOs.Results;
+using MongoDB.Driver.Linq;
+using Utilities.Constants;
+using Utilities.Exceptions.Common;
+using Utilities.MongoDatabase.Extensions;
+using Utilities.MongoDatabase.Filter;
+
+namespace iptv.Services._SyncLog;
+
+public class SyncLogService(ISyncLogRepository _syncLogRepository)
+    : ISyncLogService, RegisterMode.IScopedDependency
+{
+    public async Task<MonjoFilteredResult<SyncLogFilteredResult>> GetAllAsync(MonjoQuery query)
+    {
+        query.WithBase<SyncLogFilteredResult>();
+
+        return await _syncLogRepository
+            .AsQueryable()
+            .Apply(query.Where, nameof(SyncLogFilteredResult))
+            .Apply(query.Order, nameof(SyncLogFilteredResult))
+            .Select(syncLog => new SyncLogFilteredResult
+            {
+                PublicKey = syncLog.PublicKey,
+                ProviderPublicKey = syncLog.ProviderPublicKey,
+                ProviderName = syncLog.ProviderName,
+                Status = syncLog.Status.ToString(),
+                TotalChannels = syncLog.TotalChannels,
+                InsertedChannels = syncLog.InsertedChannels,
+                UpdatedChannels = syncLog.UpdatedChannels,
+                DeactivatedChannels = syncLog.DeactivatedChannels,
+                TotalStreams = syncLog.TotalStreams,
+                InsertedStreams = syncLog.InsertedStreams,
+                UpdatedStreams = syncLog.UpdatedStreams,
+                DeactivatedStreams = syncLog.DeactivatedStreams,
+                Message = syncLog.Message,
+                StartMoment = syncLog.StartMoment,
+                EndMoment = syncLog.EndMoment
+            })
+            .ExecuteAsync(query, nameof(SyncLogFilteredResult));
+    }
+
+    public async Task<SyncLogFilteredResult> GetByPublicKeyAsync(string publicKey)
+    {
+        var syncLog = await _syncLogRepository.GetByPublicKeyAsync(publicKey)
+                      ?? throw new NotFoundException("Sync log not found.");
+
+        return new SyncLogFilteredResult
+        {
+            PublicKey = syncLog.PublicKey,
+            ProviderPublicKey = syncLog.ProviderPublicKey,
+            ProviderName = syncLog.ProviderName,
+            Status = syncLog.Status.ToString(),
+            TotalChannels = syncLog.TotalChannels,
+            InsertedChannels = syncLog.InsertedChannels,
+            UpdatedChannels = syncLog.UpdatedChannels,
+            DeactivatedChannels = syncLog.DeactivatedChannels,
+            TotalStreams = syncLog.TotalStreams,
+            InsertedStreams = syncLog.InsertedStreams,
+            UpdatedStreams = syncLog.UpdatedStreams,
+            DeactivatedStreams = syncLog.DeactivatedStreams,
+            Message = syncLog.Message,
+            StartMoment = syncLog.StartMoment,
+            EndMoment = syncLog.EndMoment
+        };
+    }
+}
+
+============================================================
+FILE: iptv.Services/_Common/DTOs/Results/CommonResult.cs
+============================================================
+﻿namespace iptv.Services._Common.DTOs.Results
+{
+    public class CommonResult
+    {
+        public string CreatedByInfo { get; set; }
+        public DateTime CreatedMoment { get; set; } 
+
+        public string ModifiedByInfo { get; set; }
+        public DateTime? ModifiedMoment { get; set; }
+    }
+}
+
+============================================================
+FILE: iptv.Services/_StreamHealth/_BackgroundServices/StreamHealthScheduler.cs
+============================================================
+using iptv.Services._StreamHealth.Contracts;
+using Microsoft.Extensions.DependencyInjection;
+using Utilities.Constants;
+using Utilities.Services;
+
+namespace iptv.Services._StreamHealth._BackgroundServices;
+
+public class StreamHealthScheduler(IServiceProvider serviceProvider)
+    : SchedulerBase(serviceProvider, TimeSpan.FromMinutes(5)), RegisterMode.IHostedDependency
+{
+    protected override async Task HandleAsync(IServiceProvider scopedProvider)
+    {
+        var streamHealthService = scopedProvider.GetRequiredService<IStreamHealthService>();
+
+        await streamHealthService.CheckStaleStreamsAsync();
+    }
+}
+
+============================================================
+FILE: iptv.Services/_StreamHealth/Contracts/IStreamHealthService.cs
+============================================================
+using iptv.Services._StreamHealth.DTOs.Results;
+
+namespace iptv.Services._StreamHealth.Contracts;
+
+public interface IStreamHealthService
+{
+    Task<StreamHealthCheckResult> CheckStaleStreamsAsync(int limit = 200,
+        CancellationToken cancellationToken = default);
+
+    Task<StreamHealthCheckResult> CheckChannelStreamsAsync(string channelId,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> CheckStreamAsync(string streamId,
+        CancellationToken cancellationToken = default);
+}
+
+============================================================
+FILE: iptv.Services/_StreamHealth/DTOs/Results/StreamHealthCheckResult.cs
+============================================================
+namespace iptv.Services._StreamHealth.DTOs.Results;
+
+public class StreamHealthCheckResult
+{
+    public int CheckedCount { get; set; }
+    public int HealthyCount { get; set; }
+    public int UnhealthyCount { get; set; }
+}
+
+============================================================
+FILE: iptv.Services/_StreamHealth/StreamHealthService.cs
+============================================================
+using iptv.Domain.Collections;
+using iptv.Domain.Repositories.Contracts;
+using iptv.Services._IptvNotifier.Contracts;
+using iptv.Services._StreamHealth.Contracts;
+using iptv.Services._StreamHealth.DTOs.Results;
+using Microsoft.Extensions.Logging;
+using MongoDB.Driver;
+using MongoDB.Driver.Linq;
+using System.Net.Http;
+using Utilities.Constants;
+
+namespace iptv.Services._StreamHealth;
+
+public class StreamHealthService(
+    IStreamRepository _streamRepository,
+    IChannelRepository _channelRepository,
+    IHttpClientFactory _httpClientFactory,
+    IIptvEventPublisher _eventPublisher,
+    ILogger<StreamHealthService> _logger)
+    : IStreamHealthService, RegisterMode.IScopedDependency
+{
+    private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(5);
+
+    public async Task<StreamHealthCheckResult> CheckStaleStreamsAsync(int limit = 200,
+        CancellationToken cancellationToken = default)
+    {
+        var staleStreams = await _streamRepository.GetStaleStreamsAsync(
+            DateTime.UtcNow.AddMinutes(-5), limit, cancellationToken);
+
+        return await CheckStreamsAsync(staleStreams, cancellationToken);
+    }
+
+    public async Task<StreamHealthCheckResult> CheckChannelStreamsAsync(string channelId,
+        CancellationToken cancellationToken = default)
+    {
+        var streams = await _streamRepository.GetByChannelAsync(channelId, cancellationToken);
+        var activeStreams = streams.Where(q => !q.Inactive).ToList();
+
+        return await CheckStreamsAsync(activeStreams, cancellationToken);
+    }
+
+    public async Task<bool> CheckStreamAsync(string streamId,
+        CancellationToken cancellationToken = default)
+    {
+        var stream = await _streamRepository.GetByStreamIdAsync(streamId, cancellationToken);
+        if (stream == null)
+            return false;
+
+        var result = await CheckStreamsAsync([stream], cancellationToken);
+
+        return result.HealthyCount > 0;
+    }
+
+    #region Health Check Internals
+
+    private async Task<StreamHealthCheckResult> CheckStreamsAsync(
+        List<Streams> streams,
+        CancellationToken cancellationToken)
+    {
+        var result = new StreamHealthCheckResult();
+
+        foreach (var stream in streams.Where(q => !q.Inactive))
+        {
+            result.CheckedCount++;
+
+            var isHealthy = await ProbeAsync(stream, cancellationToken);
+
+            if (isHealthy) result.HealthyCount++;
+            else result.UnhealthyCount++;
+
+            if (isHealthy == stream.IsHealthy &&
+                stream.LastCheckedMoment != null)
+            {
+                await _streamRepository.FindOneAndUpdateAsync(
+                    q => q.Id == stream.Id,
+                    Builders<Streams>.Update.Set(q => q.LastCheckedMoment, DateTime.UtcNow),
+                    cancellationToken);
+                continue;
+            }
+
+            var update = Builders<Streams>.Update
+                .Set(q => q.IsHealthy, isHealthy)
+                .Set(q => q.LastCheckedMoment, DateTime.UtcNow)
+                .Set(q => q.ModifiedMoment, DateTime.UtcNow);
+
+            await _streamRepository.FindOneAndUpdateAsync(
+                q => q.Id == stream.Id, update, cancellationToken);
+
+            if (!isHealthy)
+            {
+                stream.IsHealthy = false;
+                stream.LastCheckedMoment = DateTime.UtcNow;
+
+                var replacement = await SelectReplacementStreamAsync(stream, cancellationToken);
+
+                await ApplyStreamFallbackAsync(stream, replacement, cancellationToken);
+
+                await _eventPublisher.PublishStreamHealthChangedAsync(
+                    stream, replacement, cancellationToken);
+
+                continue;
+            }
+
+            stream.IsHealthy = true;
+            stream.LastCheckedMoment = DateTime.UtcNow;
+
+            await _eventPublisher.PublishStreamHealthChangedAsync(
+                stream, null, cancellationToken);
+        }
+
+        return result;
+    }
+
+    private async Task<bool> ProbeAsync(Streams stream, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var httpClient = _httpClientFactory.CreateClient("IptvStreamCheck");
+            httpClient.Timeout = ProbeTimeout;
+
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(ProbeTimeout);
+
+            var request = new HttpRequestMessage(HttpMethod.Head, stream.StreamUri);
+            ApplyStreamHeaders(request, stream);
+
+            using var response = await httpClient.SendAsync(request,
+                HttpCompletionOption.ResponseHeadersRead, cts.Token);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.MethodNotAllowed ||
+                response.StatusCode == System.Net.HttpStatusCode.NotImplemented)
+            {
+                var getRequest = new HttpRequestMessage(HttpMethod.Get, stream.StreamUri);
+                getRequest.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(0, 0);
+                ApplyStreamHeaders(getRequest, stream);
+
+                using var getResponse = await httpClient.SendAsync(getRequest,
+                    HttpCompletionOption.ResponseHeadersRead, cts.Token);
+
+                return getResponse.IsSuccessStatusCode;
+            }
+
+            return response.IsSuccessStatusCode ||
+                   (int)response.StatusCode >= 300 && (int)response.StatusCode < 400;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Stream probe failed for {StreamUri}.", stream.StreamUri);
+            return false;
+        }
+    }
+
+    private static void ApplyStreamHeaders(HttpRequestMessage request, Streams stream)
+    {
+        if (!string.IsNullOrWhiteSpace(stream.UserAgent))
+            request.Headers.UserAgent.ParseAdd(stream.UserAgent);
+
+        if (!string.IsNullOrWhiteSpace(stream.Referer))
+            request.Headers.Referrer = new Uri(stream.Referer);
+    }
+
+    private async Task<Streams> SelectReplacementStreamAsync(
+        Streams failedStream,
+        CancellationToken cancellationToken)
+        => await _streamRepository.AsQueryable()
+            .Where(q => q.ChannelId == failedStream.ChannelId &&
+                        q.StreamId != failedStream.StreamId &&
+                        !q.Inactive &&
+                        q.IsHealthy)
+            .OrderByDescending(q => q.QualityRank)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    private async Task ApplyStreamFallbackAsync(
+        Streams failedStream,
+        Streams replacement,
+        CancellationToken cancellationToken)
+    {
+        var channel = await _channelRepository
+            .GetByChannelIdAsync(failedStream.ChannelId, cancellationToken);
+
+        if (channel == null)
+            return;
+
+        if (channel.CurrentStreamId != failedStream.StreamId && !string.IsNullOrEmpty(channel.CurrentStreamId))
+            return;
+
+        var update = Builders<Channels>.Update
+            .Set(q => q.CurrentStreamId, replacement?.StreamId)
+            .Set(q => q.ModifiedMoment, DateTime.UtcNow);
+
+        await _channelRepository.FindOneAndUpdateAsync(
+            q => q.Id == channel.Id, update, cancellationToken);
+    }
+
+    #endregion
+}
+
+============================================================
+FILE: iptv.Services/_IptvNotifier/IptvHub.cs
+============================================================
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
+
+namespace iptv.Services._IptvNotifier;
+
+[AllowAnonymous]
+public class IptvHub : Hub
+{
+    public const string Route = "/hubs/iptv";
+
+    private const string ChannelGroupPrefix = "channel-";
+
+    public async Task SubscribeToChannel(string channelId)
+        => await Groups.AddToGroupAsync(Context.ConnectionId, ChannelGroupPrefix + channelId);
+
+    public async Task UnsubscribeFromChannel(string channelId)
+        => await Groups.RemoveFromGroupAsync(Context.ConnectionId, ChannelGroupPrefix + channelId);
+
+    public async Task SubscribeToProvider(string providerPublicKey)
+        => await Groups.AddToGroupAsync(Context.ConnectionId, providerPublicKey);
+}
+
+============================================================
+FILE: iptv.Services/_IptvNotifier/Contracts/IIptvEventPublisher.cs
+============================================================
+using iptv.Domain.Collections;
+
+namespace iptv.Services._IptvNotifier.Contracts;
+
+public interface IIptvEventPublisher
+{
+    Task PublishChannelChangedAsync(Channels channel, string changeType,
+        CancellationToken cancellationToken = default);
+
+    Task PublishStreamHealthChangedAsync(Streams stream, Streams replacementStream,
+        CancellationToken cancellationToken = default);
+
+    Task PublishSyncCompletedAsync(SyncLogs syncLog,
+        CancellationToken cancellationToken = default);
+}
+
+============================================================
+FILE: iptv.Services/_IptvNotifier/IptvEventPublisher.cs
+============================================================
+using iptv.Domain.Collections;
+using iptv.Services._IptvNotifier.Contracts;
+using iptv.Services._IptvNotifier.DTOs.Results;
+using Microsoft.AspNetCore.SignalR;
+using Utilities.Constants;
+
+namespace iptv.Services._IptvNotifier;
+
+public class IptvEventPublisher(IHubContext<IptvHub> _hubContext)
+    : IIptvEventPublisher, RegisterMode.IScopedDependency
+{
+    private const string ChannelGroupPrefix = "channel-";
+
+    public async Task PublishChannelChangedAsync(Channels channel, string changeType,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = new ChannelChangedEvent
+        {
+            ChannelId = channel.ChannelId,
+            Name = channel.Name,
+            ChangeType = changeType
+        };
+
+        await _hubContext.Clients
+            .Group(ChannelGroupPrefix + channel.ChannelId)
+            .SendAsync("ChannelChanged", payload, cancellationToken);
+    }
+
+    public async Task PublishStreamHealthChangedAsync(Streams stream, Streams replacementStream,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = new StreamHealthChangedEvent
+        {
+            StreamId = stream.StreamId,
+            ChannelId = stream.ChannelId,
+            IsHealthy = stream.IsHealthy,
+            ReplacementStreamId = replacementStream?.StreamId,
+            ReplacementStreamUri = replacementStream?.StreamUri
+        };
+
+        await _hubContext.Clients
+            .Group(ChannelGroupPrefix + stream.ChannelId)
+            .SendAsync("StreamHealthChanged", payload, cancellationToken);
+    }
+
+    public async Task PublishSyncCompletedAsync(SyncLogs syncLog,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = new SyncCompletedEvent
+        {
+            ProviderPublicKey = syncLog.ProviderPublicKey,
+            ProviderName = syncLog.ProviderName,
+            Status = syncLog.Status.ToString(),
+            InsertedChannels = syncLog.InsertedChannels,
+            UpdatedChannels = syncLog.UpdatedChannels,
+            DeactivatedChannels = syncLog.DeactivatedChannels,
+            InsertedStreams = syncLog.InsertedStreams,
+            UpdatedStreams = syncLog.UpdatedStreams,
+            DeactivatedStreams = syncLog.DeactivatedStreams
+        };
+
+        await _hubContext.Clients
+            .Group(syncLog.ProviderPublicKey)
+            .SendAsync("SyncCompleted", payload, cancellationToken);
+    }
+}
+
+============================================================
+FILE: iptv.Services/_IptvNotifier/DTOs/Results/IptvEvents.cs
+============================================================
+namespace iptv.Services._IptvNotifier.DTOs.Results;
+
+public class ChannelChangedEvent
+{
+    public string ChannelId { get; set; }
+    public string Name { get; set; }
+    public string ChangeType { get; set; }
+}
+
+public class StreamHealthChangedEvent
+{
+    public string StreamId { get; set; }
+    public string ChannelId { get; set; }
+    public bool IsHealthy { get; set; }
+    public string ReplacementStreamId { get; set; }
+    public string ReplacementStreamUri { get; set; }
+}
+
+public class SyncCompletedEvent
+{
+    public string ProviderPublicKey { get; set; }
+    public string ProviderName { get; set; }
+    public string Status { get; set; }
+    public int InsertedChannels { get; set; }
+    public int UpdatedChannels { get; set; }
+    public int DeactivatedChannels { get; set; }
+    public int InsertedStreams { get; set; }
+    public int UpdatedStreams { get; set; }
+    public int DeactivatedStreams { get; set; }
+}
+
+============================================================
+FILE: iptv.Services/_Log/_BackgroundServices/LogCleanerScheduler.cs
+============================================================
+﻿using Microsoft.Extensions.DependencyInjection;
+using Utilities.Constants;
+using Utilities.Services;
+
+namespace iptv.Services._Log._BackgroundServices
+{
+    public class LogCleanerScheduler(IServiceProvider serviceProvider)
+        : SchedulerBase(serviceProvider, TimeSpan.FromDays(1)), RegisterMode.IHostedDependency
+    {
+        protected override async Task HandleAsync(IServiceProvider scopedProvider)
+        {
+            var logService = scopedProvider.GetRequiredService<ILogService>();
+
+            await logService.HardDeleteLogsLogsAsync();
+            await logService.HardDeleteRequestLogsAsync();
+        }
+    }
+}
+============================================================
+FILE: iptv.Services/_Log/DTOs/Updates/LogUpdate.cs
+============================================================
+﻿using iptv.Domain.Collections;
+
+namespace iptv.Services._Log.DTOs.Updates
+{
+    public class LogUpdate
+    {
+        public string Message { get; set; }
+        public string PublicKey { get; set; }
+        public string FullName { get; set; }
+        public string ServiceName { get; set; }
+        public string MethodName { get; set; }
+        public LogImportance Importance { get; set; }
+
+        //public LogType Type { get; set; }
+    }
+}
+ 
+============================================================
+FILE: iptv.Services/_Log/DTOs/Updates/RequestLogUpdate.cs
+============================================================
+﻿namespace iptv.Services._Log.DTOs.Updates
+{
+    public class RequestLogUpdate
+    {
+        public string ControllerName { get; set; }
+        public string ApiName { get; set; }
+        public string Body { get; set; }
+        public string Headers { get; set; }
+        public string Query { get; set; }
+        public string RoutePath { get; set; }
+        public string ClientIP { get; set; }
+    }
+}
+ 
+============================================================
+FILE: iptv.Services/_Log/ILogService.cs
+============================================================
+﻿using iptv.Services._Log.DTOs.Updates;
+
+namespace iptv.Services._Log
+{
+    public interface ILogService
+    {
+        Task CaptureLogAsync(LogUpdate update);
+        Task CaptureRequestLogAsync(RequestLogUpdate update, string publicKey, string phone);
+        Task HardDeleteRequestLogsAsync();
+        Task HardDeleteLogsLogsAsync();
+    }
+}
+
+============================================================
+FILE: iptv.Services/_Log/LogService.cs
+============================================================
+﻿using iptv.Domain.Collections;
+using iptv.Domain.Repositories.Contracts;
+using iptv.Services._Log.DTOs.Updates;
+using Utilities.Constants;
+
+namespace iptv.Services._Log
+{
+    public class LogService(ILogRepository _logRepository, IRequestLogRepository _requestLogRepository)
+        : ILogService, RegisterMode.IScopedDependency
+    {
+        public async Task CaptureLogAsync(LogUpdate update)
+        {
+            var newLog = new Log
+            {
+                Message = update.Message,
+                FullName = update.FullName,
+                PublicKey = update.PublicKey,
+                ServiceName = update.ServiceName,
+                MethodName = update.MethodName,
+                Importance = update.Importance,
+            };
+
+            await _logRepository.InsertOneAsync(newLog);
+        }
+
+        public async Task CaptureRequestLogAsync(RequestLogUpdate update,string publicKey, string phone)
+        {
+            var newLog = new RequestLog
+            {
+                ControllerName = update.ControllerName,
+                ApiName = update.ApiName,
+                Body = update.Body,
+                ClientIP = update.ClientIP,
+                Headers = update.Headers,
+                Query = update.Query,
+                RoutePath = update.RoutePath,
+                PublicKey = publicKey,
+                Phone = phone
+            };
+
+            await _requestLogRepository.InsertOneAsync(newLog);
+        }
+
+        public async Task HardDeleteLogsLogsAsync()
+        {
+            await _logRepository.RealDeleteManyAsync(q => q.CreatedMoment <= DateTime.UtcNow.AddDays(-1));
+        }
+
+        public async Task HardDeleteRequestLogsAsync()
+        {
+            await _requestLogRepository.RealDeleteManyAsync(q => q.CreatedMoment <= DateTime.UtcNow.AddDays(-10));
+        }
+
+
+    }
+}
+
+============================================================
+FILE: iptv.Services/_Channel/Contracts/IChannelService.cs
+============================================================
+using iptv.Services._Channel.DTOs.Results;
+using iptv.Services._Channel.DTOs.Updates;
+using Utilities.Models.Updates;
+using Utilities.MongoDatabase.Filter;
+using Utilities.Utilities;
+
+namespace iptv.Services._Channel.Contracts;
+
+public interface IChannelService
+{
+    Task<MonjoFilteredResult<ChannelFilteredResult>> GetAllAsync(MonjoQuery query);
+
+    Task<MonjoFilteredResult<ChannelFilteredResult>>
+        GetChannelsFilteredAsync(MonjoQuery query, GetChannelsFilteredUpdate update);
+
+    Task<ManualPaginationResult<ChannelResult>> GetChannelWithSearchAsync(GetAllChannelUpdate update);
+
+    Task<MonjoFilteredResult<ChannelFilteredResult>> GetAllForAdminAsync(MonjoQuery query);
+
+    Task<ChannelFilteredResult> GetByChannelIdAsync(GetGlobalIdUpdate channelId);
+
+    Task<ChannelFilteredResult> ActivateAsync(ChannelActivateUpdate update);
+
+    Task<string> DeleteAsync(ChannelDeleteUpdate update);
+}
+============================================================
+FILE: iptv.Services/_Channel/DTOs/Updates/ChannelDeleteUpdate.cs
+============================================================
+using Utilities.Attributes;
+
+namespace iptv.Services._Channel.DTOs.Updates;
+
+public class ChannelDeleteUpdate
+{
+    [StringInputValidation] public string ChannelId { get; set; }
+}
+============================================================
+FILE: iptv.Services/_Channel/DTOs/Updates/ChannelActivateUpdate.cs
+============================================================
+using Utilities.Attributes;
+
+namespace iptv.Services._Channel.DTOs.Updates;
+
+public class ChannelActivateUpdate
+{
+    [StringInputValidation]public string ChannelId { get; set; }
+    public required bool ShouldActivate { get; set; }
+}
+
+============================================================
+FILE: iptv.Services/_Channel/DTOs/Updates/GetChannelsFilteredUpdate.cs
+============================================================
+namespace iptv.Services._Channel.DTOs.Updates;
+
+public class GetChannelsFilteredUpdate
+{
+    public string ImageUri { get; set; }
+    public string Country { get; set; }
+    public string Category { get; set; }
+}
+============================================================
+FILE: iptv.Services/_Channel/DTOs/Updates/GetAllChannelUpdate.cs
+============================================================
+using Utilities.Models.Updates;
+
+namespace iptv.Services._Channel.DTOs.Updates;
+
+public class GetAllChannelUpdate : PaginationUpdate
+{
+    public string Search { get; set; }
+    public bool OrderBy { get; set; }
+}
+============================================================
+FILE: iptv.Services/_Channel/DTOs/Results/ChannelResult.cs
+============================================================
+namespace iptv.Services._Channel.DTOs.Results;
+
+public class ChannelResult
+{
+    public string ChannelId { get; set; }
+    public string Name { get; set; }
+    public string ImageUri { get; set; }
+    public string Country { get; set; }
+    public string Category { get; set; }
+}
+============================================================
+FILE: iptv.Services/_Channel/DTOs/Results/ChannelFilteredResult.cs
+============================================================
+namespace iptv.Services._Channel.DTOs.Results;
+
+public class ChannelFilteredResult
+{
+    public string ChannelId { get; set; }
+    public string ProviderPublicKey { get; set; }
+    public string ExternalId { get; set; }
+    public string Name { get; set; }
+    public string ImageUri { get; set; }
+    public string Country { get; set; }
+    public string Category { get; set; }
+    public string CurrentStreamId { get; set; }
+    public bool Inactive { get; set; }
+    public DateTime CreatedMoment { get; set; }
+    public DateTime? ModifiedMoment { get; set; }
+}
+
+============================================================
+FILE: iptv.Services/_Channel/ChannelService.cs
+============================================================
+using iptv.Domain.Collections;
+using iptv.Domain.Repositories.Contracts;
+using iptv.Services._Channel.Contracts;
+using iptv.Services._Channel.DTOs.Results;
+using iptv.Services._Channel.DTOs.Updates;
+using iptv.Services._IptvNotifier.Contracts;
+using MongoDB.Driver;
+using MongoDB.Driver.Linq;
+using Utilities.Constants;
+using Utilities.Exceptions.Common;
+using Utilities.Models.Updates;
+using Utilities.MongoDatabase.Extensions;
+using Utilities.MongoDatabase.Filter;
+using Utilities.Utilities;
+
+namespace iptv.Services._Channel;
+
+public class ChannelService(
+    IChannelRepository _channelRepository,
+    IIptvEventPublisher _eventPublisher)
+    : IChannelService, RegisterMode.IScopedDependency
+{
+    public async Task<MonjoFilteredResult<ChannelFilteredResult>> GetAllAsync(
+        MonjoQuery query)
+    {
+        query.WithBase<ChannelFilteredResult>();
+
+        return await _channelRepository
+            .AsQueryable()
+            .Where(q => !q.Inactive)
+            .Apply(query.Where, nameof(ChannelFilteredResult))
+            .Apply(query.Order, nameof(ChannelFilteredResult))
+            .Select(n => new ChannelFilteredResult
+            {
+                ChannelId = n.ChannelId,
+                Name = n.Name,
+                ImageUri = n.ImageUri,
+                Country = n.Country,
+                Category = n.Category,
+                CurrentStreamId = n.CurrentStreamId
+            })
+            .ExecuteAsync(query, nameof(ChannelFilteredResult));
+    }
+
+    public async Task<MonjoFilteredResult<ChannelFilteredResult>> GetChannelsFilteredAsync(
+        MonjoQuery query,
+        GetChannelsFilteredUpdate update)
+    {
+        query.WithBase<ChannelFilteredResult>();
+
+        if (string.IsNullOrEmpty(update.Country) &&
+            string.IsNullOrEmpty(update.Category) &&
+            string.IsNullOrEmpty(update.ImageUri))
+            throw new BadRequestException("Please select at least one filter criteria.");
+
+        var queryResult = _channelRepository.AsQueryable()
+            .Where(q => !q.Inactive &&
+                        (string.IsNullOrEmpty(update.Country) || q.Country.ToLower() == update.Country.ToLower()) &&
+                        (string.IsNullOrEmpty(update.Category) || q.Category.ToLower() == update.Category.ToLower()) &&
+                        (string.IsNullOrEmpty(update.ImageUri) ||
+                         q.ImageUri.ToLower().Contains(update.ImageUri.ToLower())))
+            .Apply(query.Where, nameof(ChannelFilteredResult))
+            .Apply(query.Order, nameof(ChannelFilteredResult))
+            .Select(n => new ChannelFilteredResult
+            {
+                ChannelId = n.ChannelId,
+                Name = n.Name,
+                ImageUri = n.ImageUri,
+                Country = n.Country,
+                Category = n.Category,
+                CurrentStreamId = n.CurrentStreamId
+            });
+
+        var channel = await queryResult.ExecuteAsync(query, nameof(ChannelFilteredResult));
+
+        if (channel.Data == null || channel.Data.Count == 0)
+            throw new NotFoundException("Channel not found for the specified criteria.");
+
+        return channel;
+    }
+
+    public async Task<MonjoFilteredResult<ChannelFilteredResult>> GetAllForAdminAsync(
+        MonjoQuery query)
+    {
+        query.WithBase<ChannelFilteredResult>();
+
+        return await _channelRepository
+            .AsQueryable()
+            .Apply(query.Where, nameof(ChannelFilteredResult))
+            .Apply(query.Order, nameof(ChannelFilteredResult))
+            .Select(MapToResult())
+            .ExecuteAsync(query, nameof(ChannelFilteredResult));
+    }
+
+    public async Task<ManualPaginationResult<ChannelResult>> GetChannelWithSearchAsync(GetAllChannelUpdate update)
+    {
+        var query = _channelRepository.AsQueryable().Where(q => !q.Inactive);
+
+        if (!string.IsNullOrEmpty(update.Search))
+        {
+            query = query.Where(channels => channels.Category.ToLower().Contains(update.Search.ToLower()) ||
+                                            channels.Country.ToLower() == update.Search.ToLower() ||
+                                            channels.Name.ToLower().Contains(update.Search.ToLower())
+            );
+        }
+
+        if (update.OrderBy)
+            query = query.OrderBy(channels => channels.Name);
+        else
+            query = query.OrderByDescending(channels => channels.Name);
+
+        var mappedQuery = query.Select(channels => new
+        {
+            channels.ChannelId,
+            channels.Name,
+            channels.ImageUri,
+            channels.Country,
+            channels.Category
+        });
+
+        var paginatedArticles = await mappedQuery.PaginateAsync(update.Page, update.Size);
+
+
+        ManualPaginationResult<ChannelResult> result = new()
+        {
+            PageCount = paginatedArticles.PageCount,
+            TotalCount = paginatedArticles.TotalCount,
+            Data =
+            [
+                .. paginatedArticles.Data.Select(channel => new ChannelResult()
+                {
+                    ChannelId = channel.ChannelId,
+                    Name = channel.Name,
+                    ImageUri = channel.ImageUri,
+                    Country = channel.Country,
+                    Category = channel.Category
+                })
+            ],
+        };
+
+        return result;
+    }
+
+    public async Task<ChannelFilteredResult> GetByChannelIdAsync(GetGlobalIdUpdate channelId)
+    {
+        var channel = await _channelRepository.GetByChannelIdAsync(channelId.Id)
+                      ?? throw new NotFoundException("Channel not found.");
+
+        return (new ChannelFilteredResult
+        {
+            ChannelId = channel.ChannelId,
+            Name = channel.Name,
+            ImageUri = channel.ImageUri,
+            Country = channel.Country,
+            Category = channel.Category
+        });
+    }
+
+    public async Task<ChannelFilteredResult> ActivateAsync(ChannelActivateUpdate update)
+    {
+        var channel = await _channelRepository.GetByChannelIdAsync(update.ChannelId)
+                      ?? throw new NotFoundException("Channel not found.");
+
+        var newUpdate = Builders<Channels>.Update
+            .Set(q => q.Inactive, !update.ShouldActivate)
+            .Set(q => q.ModifiedMoment, DateTime.UtcNow);
+
+        await _channelRepository.FindOneAndUpdateAsync(
+            q => q.Id == channel.Id, newUpdate);
+
+        channel.Inactive = !update.ShouldActivate;
+
+        await _eventPublisher.PublishChannelChangedAsync(channel,
+            update.ShouldActivate ? "Activated" : "Deactivated");
+
+        return MapToResult(channel);
+    }
+
+    public async Task<string> DeleteAsync(ChannelDeleteUpdate update)
+    {
+        var channel = await _channelRepository.GetByChannelIdAsync(update.ChannelId)
+                      ?? throw new NotFoundException("Channel not found.");
+
+        await _channelRepository.DeleteOneAsync(q => q.Id == channel.Id);
+
+        await _eventPublisher.PublishChannelChangedAsync(channel, "Deleted");
+
+        return channel.ChannelId;
+    }
+
+    #region Helpers
+
+    private static System.Linq.Expressions.Expression<Func<Channels, ChannelFilteredResult>> MapToResult()
+        => channel => new ChannelFilteredResult
+        {
+            ChannelId = channel.ChannelId,
+            ProviderPublicKey = channel.ProviderPublicKey,
+            ExternalId = channel.ExternalId,
+            Name = channel.Name,
+            ImageUri = channel.ImageUri,
+            Country = channel.Country,
+            Category = channel.Category,
+            CurrentStreamId = channel.CurrentStreamId,
+            Inactive = channel.Inactive,
+            CreatedMoment = channel.CreatedMoment,
+            ModifiedMoment = channel.ModifiedMoment
+        };
+
+    private static ChannelFilteredResult MapToResult(Channels channel)
+        => new()
+        {
+            ChannelId = channel.ChannelId,
+            ProviderPublicKey = channel.ProviderPublicKey,
+            ExternalId = channel.ExternalId,
+            Name = channel.Name,
+            ImageUri = channel.ImageUri,
+            Country = channel.Country,
+            Category = channel.Category,
+            CurrentStreamId = channel.CurrentStreamId,
+            Inactive = channel.Inactive,
+            CreatedMoment = channel.CreatedMoment,
+            ModifiedMoment = channel.ModifiedMoment
+        };
+
+    #endregion
+}
+============================================================
+FILE: iptv.Services/_User/UserService.cs
+============================================================
+﻿using iptv.Domain.Collections;
+using iptv.Domain.Repositories.Contracts;
+using iptv.Services._User.Contracts;
+using iptv.Services._User.DTOs.Results;
+using iptv.Services._User.DTOs.Updates;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using MongoDB.Driver;
+using MongoDB.Driver.Linq;
+using Utilities._Permissions.Constants;
+using Utilities._Permissions.Utilities;
+using Utilities.Constants;
+using Utilities.Enums;
+using Utilities.Exceptions;
+using Utilities.Exceptions.Common;
+using Utilities.Extensions;
+using Utilities.Models.Storages;
+using Utilities.MongoDatabase.Extensions;
+using Utilities.MongoDatabase.Filter;
+using Utilities.Services.Contracts;
+
+namespace iptv.Services._User
+{
+    public class UserService(
+        IUserRepository _userRepository,
+        JwtServiceSettings _jwtSettings,
+        IJwtService _jwtService,
+        IPasswordService _passwordService,
+        ICaptchaService _captchaService,
+        SecurityStampStorage _securityStampStorage,
+        ILogger<UserService> _logger)
+        : IUserService, RegisterMode.IScopedDependency
+    {
+        public async Task<ActionResult> LoginAsync(UserLoginUpdate update)
+        {
+            ValidateClientInfo(update.ClientId, update.ClientSecret);
+
+            //await _captchaService.ValidateCaptchaAsync(update.CaptchaCode);
+
+            var user = await _userRepository.AsQueryable()
+                .FirstOrDefaultAsync(q => q.UserName == update.UserName);
+
+            if (user == null || !_passwordService.Verify(update.Password, user.PasswordHash))
+                throw new BadRequestException("Invalid username or password.");
+            if (user.State == UserState.Archived)
+                throw new BadRequestException("An archived user cannot log in.");
+            if (user.State == UserState.Ban)
+                throw new BadRequestException("Access denied. User is banned.");
+
+            user = AddLoginDateToUser(user);
+            await _userRepository.ReplaceOneAsync(user);
+
+            var tokenResult = _jwtService.Generate(BuildClaims(user));
+
+            var refreshTokenHash = _passwordService.Hash(tokenResult.refresh_token);
+            var expiry = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiresAfterDays);
+            await UpdateRefreshTokenAsync(user.PublicKey, refreshTokenHash, expiry);
+
+            return new JsonResult(tokenResult);
+        }
+
+        public async Task<ActionResult> RenewTokenAsync(UserRenewTokenUpdate update)
+        {
+            _logger.LogInformation(
+                "RenewToken request: grant_type={GrantType}, accessTokenPresent={AccessPresent}, " +
+                "refreshTokenPresent={RefreshPresent}, clientIdPresent={ClientIdPresent}, clientSecretPresent={ClientSecretPresent}",
+                update.grant_type,
+                !string.IsNullOrWhiteSpace(update.access_token),
+                !string.IsNullOrWhiteSpace(update.refresh_token),
+                !string.IsNullOrWhiteSpace(update.client_id),
+                !string.IsNullOrWhiteSpace(update.client_secret));
+
+
+            if (string.IsNullOrWhiteSpace(update.access_token))
+                throw new BadRequestException(
+                    "Access token is required to identify the account for renewal. Please log in again.");
+
+            System.Security.Claims.ClaimsPrincipal principal;
+            try
+            {
+                principal = _jwtService.GetPrincipalFromExpiredToken(update.access_token);
+            }
+            catch
+            {
+                throw new BadRequestException("Invalid access token.");
+            }
+
+            var publicKey = principal.Claims
+                                .FirstOrDefault(c => c.Type == Claims.PublicKey.ToDisplay())?.Value ??
+                            throw new BadRequestException("Invalid token claims.");
+
+            var user = await _userRepository.GetUserByPublicKeyAsync(publicKey);
+
+            if (user.State == UserState.Archived)
+                throw new BadRequestException("An archived user cannot log in.");
+            if (user.State == UserState.Ban)
+                throw new BadRequestException("Access denied. User is banned.");
+
+            if (string.IsNullOrEmpty(user.RefreshTokenHash) ||
+                user.RefreshTokenExpiresAt == null ||
+                user.RefreshTokenExpiresAt < DateTime.UtcNow)
+                throw new AuthorizationException("Refresh token has expired. Please log in again.");
+
+            if (!_passwordService.Verify(update.refresh_token, user.RefreshTokenHash))
+                throw new AuthorizationException("Invalid refresh token.");
+
+
+            var newTokenResult = _jwtService.Generate(BuildClaims(user));
+            newTokenResult.refresh_token = update.refresh_token;
+
+            return new JsonResult(newTokenResult);
+        }
+
+        public async Task<bool> LogoutAsync(string publicKey)
+        {
+            var newSecurityStamp = Guid.NewGuid().ToString("N");
+
+            var filter = Builders<User>.Filter.Eq(u => u.PublicKey, publicKey);
+            var updateDef = Builders<User>.Update
+                .Set(u => u.RefreshTokenHash, null)
+                .Set(u => u.RefreshTokenExpiresAt, null)
+                .Set(u => u.SecurityStamp, newSecurityStamp);
+
+            var user = await _userRepository.FindOneAndUpdateAsync(filter, updateDef, CancellationToken.None);
+
+            if (user == null)
+                throw new NotFoundException("User not found.");
+
+            _securityStampStorage.UpdateSecurityStamp(UserType.User.ToDisplay(), publicKey, newSecurityStamp);
+
+            return true;
+        }
+
+        public async Task<UserFilteredResult> CreateUserAsync(UserRegisterUpdate update)
+        {
+            if (await _userRepository.AsQueryable().AnyAsync(q => q.UserName == update.UserName))
+                throw new BadRequestException("Username was already taken");
+
+            var user = new User
+            {
+                UserName = update.UserName,
+                State = UserState.Active,
+                PasswordHash = _passwordService.Hash(update.Password),
+                Permissions =
+                    PermissionUtilities.GetCodeOfPermissionsByTheirTitle(
+                        [.. update.Permissions, update.Role.ToString()]),
+                EmailAddress = update.EmailAddress,
+                FullName = update.FullName,
+                NickName = update.NickName,
+                Role = update.Role,
+                RoleDescription = update.RoleDescription,
+                PhoneNumber = update.PhoneNumber,
+            };
+
+            await _userRepository.InsertOneAsync(user);
+
+            return MapToUserFilteredResult(user);
+        }
+
+        public async Task<UserFilteredResult> EditUserAsync(UserEditUpdate update)
+        {
+            var user = await _userRepository.GetUserByPublicKeyAsync(update.PublicKey);
+            var oldPermissions = user.Permissions.ToList();
+
+            if (await _userRepository.AsQueryable()
+                    .AnyAsync(q => q.UserName == update.UserName && q.PublicKey != update.PublicKey))
+                throw new BadRequestException("Username was already taken");
+
+            user.UserName = update.UserName;
+            user.State = update.State;
+            user.FullName = update.FullName;
+            user.NickName = update.NickName;
+            user.Role = update.Role;
+            user.RoleDescription = update.RoleDescription;
+            user.PhoneNumber = !string.IsNullOrEmpty(update.PhoneNumber) ? update.PhoneNumber : null;
+            user.EmailAddress = !string.IsNullOrEmpty(update.PhoneNumber) ? update.EmailAddress : null;
+            user.Permissions = update.Permissions != null && update.Permissions.Count != 0
+                ? PermissionUtilities.GetCodeOfPermissionsByTheirTitle([.. update.Permissions, user.Role.ToString()])
+                : user.Permissions;
+
+            if (oldPermissions.Count != user.Permissions.Count ||
+                !oldPermissions.All(p => user.Permissions.Contains(p)))
+                user.SecurityStamp = Guid.NewGuid().ToString("N");
+
+            await _userRepository.ReplaceOneAsync(user);
+
+            return MapToUserFilteredResult(user);
+        }
+
+        public async Task<bool> ChangePasswordAsync(UserResetPasswordUpdate update)
+        {
+            var user = await _userRepository.GetUserByPublicKeyAsync(update.PublicKey);
+            user.PasswordHash = _passwordService.Hash(update.Password);
+            user.SecurityStamp = Guid.NewGuid().ToString("N");
+            user.RefreshTokenHash = null;
+            user.RefreshTokenExpiresAt = null;
+
+            await _userRepository.ReplaceOneAsync(user);
+
+            _securityStampStorage.UpdateSecurityStamp(UserType.User.ToDisplay(), user.PublicKey, user.SecurityStamp);
+
+            return true;
+        }
+
+        public async Task<UserFilteredResult> ArchiveUserAsync(UserArchiveUserUpdate update)
+        {
+            var user = await _userRepository.GetUserByPublicKeyAsync(update.UserPublicKey);
+
+            user.State = update.ShouldArchive
+                ? UserState.Archived
+                : UserState.Active;
+            user.SecurityStamp = Guid.NewGuid().ToString("N");
+            user.RefreshTokenHash = null;
+            user.RefreshTokenExpiresAt = null;
+
+            var updateDef = Builders<User>.Update
+                .Set(u => u.State, user.State)
+                .Set(u => u.SecurityStamp, user.SecurityStamp)
+                .Set(u => u.RefreshTokenHash, user.RefreshTokenHash)
+                .Set(u => u.RefreshTokenExpiresAt, user.RefreshTokenExpiresAt);
+
+            await _userRepository.FindOneAndUpdateAsync(q => q.PublicKey == update.UserPublicKey, updateDef);
+
+            _securityStampStorage.UpdateSecurityStamp(UserType.User.ToDisplay(), update.UserPublicKey,
+                user.SecurityStamp);
+
+            return MapToUserFilteredResult(user);
+        }
+
+        public async Task<UserFilteredResult> BanUserAsync(UserBanUpdate update)
+        {
+            var user = await _userRepository.GetUserByPublicKeyAsync(update.PublicKey);
+            user.State = update.MakeBan ? UserState.Ban : UserState.Active;
+            user.SecurityStamp = Guid.NewGuid().ToString("N");
+            user.RefreshTokenHash = null;
+            user.RefreshTokenExpiresAt = null;
+
+            var updateDef = Builders<User>.Update
+                .Set(u => u.State, user.State)
+                .Set(u => u.SecurityStamp, user.SecurityStamp)
+                .Set(u => u.RefreshTokenHash, user.RefreshTokenHash)
+                .Set(u => u.RefreshTokenExpiresAt, user.RefreshTokenExpiresAt);
+
+            await _userRepository.FindOneAndUpdateAsync(q => q.PublicKey == update.PublicKey, updateDef);
+
+            _securityStampStorage.UpdateSecurityStamp(UserType.User.ToDisplay(), update.PublicKey, user.SecurityStamp);
+
+            return MapToUserFilteredResult(user);
+        }
+
+        public async Task<string> DeleteUserByPublickeyAsync(UserDeleteUserUpdate update)
+        {
+            var user = await _userRepository.GetUserByPublicKeyAsync(update.PublicKey);
+
+            await _userRepository.DeleteOneAsync(q => q.PublicKey == update.PublicKey);
+
+            return user.PublicKey;
+        }
+
+        public async Task<MonjoFilteredResult<UserFilteredForAdminResult>> GetAllUsersAsync(MonjoQuery query)
+        {
+            query.WithBase<UserFilteredForAdminResult>();
+            var data = await _userRepository.AsQueryable()
+                .Apply(query.Where, nameof(UserFilteredForAdminResult))
+                .Apply(query.Order, nameof(UserFilteredForAdminResult))
+                .Select(user => new UserFilteredForAdminResult
+                {
+                    CreatedByInfo = user.CreatedByInfo,
+                    CreatedMoment = user.CreatedMoment,
+                    ModifiedByInfo = user.ModifiedByInfo,
+                    ModifiedMoment = user.ModifiedMoment,
+                    State = user.State,
+                    PublicKey = user.PublicKey,
+                    UserName = user.UserName,
+                    FullName = user.FullName,
+                    NickName = user.NickName,
+                    Role = user.Role,
+                    RoleDescription = user.RoleDescription,
+                    Permissions = user.Permissions,
+                    PhoneNumber = user.PhoneNumber,
+                    EmailAddress = user.EmailAddress,
+                    LoginDates = user.LoginDates,
+                })
+                .ExecuteAsync(query, nameof(UserFilteredForAdminResult));
+
+            data.Data =
+            [
+                .. data.Data.Select(user =>
+                {
+                    user.Permissions = PermissionUtilities.GetTitleOfPermissionsByTheirCode(user.Permissions);
+                    return user;
+                })
+            ];
+
+            return data;
+        }
+
+        public Dictionary<string, Dictionary<string, string>> GetClassifiedPermissions()
+            => PermissionUtilities.GetUserClassifiedPermissions();
+
+        public async Task<bool> ResetPasswordAsync(UserManualChangePasswordUpdate update, string whoIs)
+        {
+            var user = await _userRepository.GetUserByPublicKeyAsync(whoIs);
+
+            if (user == null || !_passwordService.Verify(update.OldPassword, user.PasswordHash))
+                throw new BadRequestException("User not found.");
+            if (user.State == UserState.Ban)
+                throw new BadRequestException("User is banned.");
+            if (_passwordService.Verify(update.NewPassword, user.PasswordHash))
+                throw new BadRequestException("New password must be different from old password.");
+
+            user.PasswordHash = _passwordService.Hash(update.NewPassword);
+            user.SecurityStamp = Guid.NewGuid().ToString("N");
+            user.RefreshTokenHash = null;
+            user.RefreshTokenExpiresAt = null;
+
+            await _userRepository.ReplaceOneAsync(user);
+
+            _securityStampStorage.UpdateSecurityStamp(UserType.User.ToDisplay(), user.PublicKey, user.SecurityStamp);
+
+            return true;
+        }
+
+        public async Task<UserFilteredResult> GetUserByPublickeyAsync(string publickey)
+        {
+            var user = await _userRepository.GetUserByPublicKeyAsync(publickey);
+            return MapToUserFilteredResult(user);
+        }
+
+        #region Scheduler Methods
+
+        public async Task SyncPermissionsAsync()
+        {
+            foreach (var role in Permissions.AllRoles)
+            {
+                var newPermissionsForRole = Permissions.PermissionsList
+                    .Where(p => p.Roles.Contains(role.ToLower()) && p.IsNew)
+                    .Select(p => new { p.Code, p.Title })
+                    .ToList();
+                var newPermissionsCodeForRole = newPermissionsForRole.Select(q => q.Code);
+                var newPermissionsTitleForRole = newPermissionsForRole.Select(q => q.Title);
+
+                if (newPermissionsForRole.Count == 0)
+                    continue;
+
+                UserRole parsedRole = Enum.Parse<UserRole>(role, true);
+                var roleFilter = Builders<User>.Filter.Eq(u => u.Role, parsedRole);
+
+                var missingPermissionsFilter = Builders<User>.Filter.Not(
+                    Builders<User>.Filter.All(u => u.Permissions, newPermissionsCodeForRole)
+                );
+
+                var finalFilter = Builders<User>.Filter.And(roleFilter, missingPermissionsFilter);
+
+                var update = Builders<User>.Update.AddToSetEach(
+                    u => u.Permissions,
+                    newPermissionsCodeForRole
+                );
+
+                var result = await _userRepository.UpdateManyAsync(finalFilter, update, CancellationToken.None);
+
+                _logger.LogInformation("Updated {Count} users for role {Role} with permissions: {Permissions}",
+                    result.ModifiedCount, role, string.Join(", ", newPermissionsTitleForRole));
+            }
+        }
+
+        #endregion
+
+        #region Private Methods
+
+        private void ValidateClientInfo(string clientId, string clientSecret)
+        {
+            if (!clientId.HasValue() ||
+                !clientSecret.HasValue() ||
+                !_jwtSettings.ClientInfo.ContainsKey(clientId.ToLower()) ||
+                !_jwtSettings.ClientInfo[clientId.ToLower()].Equals(clientSecret, StringComparison.OrdinalIgnoreCase))
+                throw new BadRequestException(ApiResultStatusCode.OAuth.ToDisplay());
+        }
+
+        private static User AddLoginDateToUser(User user)
+        {
+            try
+            {
+                if (user.LoginDates is { Count: >= 1 })
+                {
+                    user.LoginDates.Add(DateTime.UtcNow);
+
+                    var userLoginDates = user.LoginDates.OrderByDescending(x => x).ToList();
+                    if (userLoginDates.Count <= 20) return user;
+                    var twentiethDate = userLoginDates[19];
+                    userLoginDates.RemoveAll(q => q <= twentiethDate);
+                    user.LoginDates = userLoginDates;
+                }
+                else
+                    user.LoginDates = [DateTime.UtcNow];
+
+                return user;
+            }
+            catch (Exception ex)
+            {
+                throw new BaseException(ex.Message);
+            }
+        }
+
+        private static IEnumerable<System.Security.Claims.Claim> BuildClaims(User user)
+        {
+            var claims = new List<System.Security.Claims.Claim>
+            {
+                new(Claims.PublicKey.ToDisplay(), user.PublicKey),
+                new(Claims.UserType.ToDisplay(), UserType.User.ToDisplay()),
+                new(Claims.SecurityStamp.ToDisplay(), user.SecurityStamp),
+                new(Claims.Role.ToDisplay(), user.Role.ToString()),
+                new(Claims.FullName.ToDisplay(), user.FullName),
+            };
+
+            if (user.Permissions != null)
+                claims.AddRange(user.Permissions.Select(p =>
+                    new System.Security.Claims.Claim(Claims.Permission.ToDisplay(), p)));
+
+            return claims;
+        }
+
+        private static UserFilteredResult MapToUserFilteredResult(User user)
+        {
+            return new UserFilteredResult
+            {
+                CreatedByInfo = user.CreatedByInfo,
+                CreatedMoment = user.CreatedMoment,
+                ModifiedByInfo = user.ModifiedByInfo,
+                ModifiedMoment = user.ModifiedMoment,
+                State = user.State,
+                PublicKey = user.PublicKey,
+                UserName = user.UserName,
+                FullName = user.FullName,
+                NickName = user.NickName,
+                Role = user.Role,
+                RoleDescription = user.RoleDescription,
+                Permissions = PermissionUtilities.GetTitleOfPermissionsByTheirCode(user.Permissions),
+                PhoneNumber = user.PhoneNumber,
+                EmailAddress = user.EmailAddress,
+                LoginDates = user.LoginDates
+            };
+        }
+
+        private async Task UpdateRefreshTokenAsync(string publicKey, string refreshTokenHash, DateTime expiresAt)
+        {
+            var filter = Builders<User>.Filter
+                .Eq(u => u.PublicKey, publicKey);
+
+            var update = Builders<User>.Update
+                .Set(u => u.RefreshTokenHash, refreshTokenHash)
+                .Set(u => u.RefreshTokenExpiresAt, expiresAt);
+
+            var result = await _userRepository.FindOneAndUpdateAsync(filter, update, CancellationToken.None);
+        }
+
+        #endregion
+    }
+}
+============================================================
+FILE: iptv.Services/_User/Contracts/IUserService.cs
+============================================================
+﻿using iptv.Services._User.DTOs.Results;
+using iptv.Services._User.DTOs.Updates;
+using Microsoft.AspNetCore.Mvc;
+using Utilities.MongoDatabase.Filter;
+
+namespace iptv.Services._User.Contracts
+{
+    public interface IUserService
+    {
+        Task<ActionResult> LoginAsync(UserLoginUpdate update);
+        Task<ActionResult> RenewTokenAsync(UserRenewTokenUpdate update);
+        Task<bool> LogoutAsync(string publicKey);
+
+        Task<UserFilteredResult> CreateUserAsync(UserRegisterUpdate update);
+        Task<UserFilteredResult> EditUserAsync(UserEditUpdate update);
+        Task<bool> ChangePasswordAsync(UserResetPasswordUpdate update);
+        Task<UserFilteredResult> ArchiveUserAsync(UserArchiveUserUpdate update);
+        Task<UserFilteredResult> BanUserAsync(UserBanUpdate update);
+        Task<string> DeleteUserByPublickeyAsync(UserDeleteUserUpdate update);
+        Task<MonjoFilteredResult<UserFilteredForAdminResult>> GetAllUsersAsync(MonjoQuery query);
+        Dictionary<string, Dictionary<string, string>> GetClassifiedPermissions();
+        Task<bool> ResetPasswordAsync(UserManualChangePasswordUpdate update, string whoIs);
+        Task<UserFilteredResult> GetUserByPublickeyAsync(string publickey);
+        Task SyncPermissionsAsync();
+    }
+}
+============================================================
+FILE: iptv.Services/_User/DTOs/Updates/UserManualChangePasswordUpdate.cs
+============================================================
+﻿namespace iptv.Services._User.DTOs.Updates
+{
+    public class UserManualChangePasswordUpdate
+    {
+        public string OldPassword { get; set; }
+        public string NewPassword { get; set; }
+    }
+}
+
+============================================================
+FILE: iptv.Services/_User/DTOs/Updates/UserRenewTokenUpdate.cs
+============================================================
+﻿using Utilities.Attributes;
+
+namespace iptv.Services._User.DTOs.Updates
+{
+    public class UserRenewTokenUpdate
+    {
+        public string access_token { get; set; }
+
+
+        [StringInputValidation(ErrorMessage = "refresh_token is required.")]
+        public string refresh_token { get; set; }
+
+
+        [StringInputValidation(ErrorMessage = "grant_type must be 'refresh_token'.")]
+        public string grant_type { get; set; }
+
+        public string client_id { get; set; }
+        public string client_secret { get; set; }
+    }
+}
+============================================================
+FILE: iptv.Services/_User/DTOs/Updates/UserRegisterUpdate.cs
+============================================================
+﻿using System.ComponentModel.DataAnnotations;
+using iptv.Domain.Collections;
+
+namespace iptv.Services._User.DTOs.Updates
+{
+    public class UserRegisterUpdate
+    {
+        public string FullName { get; set; }
+        public string NickName { get; set; }
+        public string UserName { get; set; }
+        public string Password { get; set; }
+        public UserRole Role { get; set; }
+        public string RoleDescription { get; set; }
+        public List<string> Permissions { get; set; }
+        public string PhoneNumber { get; set; }
+        [EmailAddress]
+        public string EmailAddress { get; set; }
+    }
+}
+============================================================
+FILE: iptv.Services/_User/DTOs/Updates/UserEditUpdate.cs
+============================================================
+﻿using iptv.Domain.Collections;
+
+namespace iptv.Services._User.DTOs.Updates
+{
+    public class UserEditUpdate
+    {
+        public string PublicKey { get; set; }
+        public UserState State { get; set; }
+        public string FullName { get; set; }
+        public string NickName { get; set; }
+        public string UserName { get; set; }
+        public UserRole Role { get; set; }
+        public string RoleDescription { get; set; }
+        public List<string> Permissions { get; set; }
+        public string PhoneNumber { get; set; }
+        public string EmailAddress { get; set; }
+        public string CreatorPublicKey { get; set; }
+        public string CreatorName { get; set; }
+    }
+}
+============================================================
+FILE: iptv.Services/_User/DTOs/Updates/UserLoginUpdate.cs
+============================================================
+﻿namespace iptv.Services._User.DTOs.Updates
+{
+    public class UserLoginUpdate
+    {
+        public string UserName { get; set; }
+        public string Password { get; set; }
+        public string ClientId { get; set; }
+        public string ClientSecret { get; set; }
+        public string CaptchaCode { get; set; }
+    }
+}
+
+============================================================
+FILE: iptv.Services/_User/DTOs/Updates/UserDeleteUserUpdate.cs
+============================================================
+﻿namespace iptv.Services._User.DTOs.Updates
+{
+    public class UserDeleteUserUpdate
+    {
+        public string PublicKey { get; set; }
+    }
+}
+
+============================================================
+FILE: iptv.Services/_User/DTOs/Updates/UserResetPasswordUpdate.cs
+============================================================
+﻿namespace iptv.Services._User.DTOs.Updates
+{
+    public class UserResetPasswordUpdate
+    {
+        public string PublicKey { get; set; }
+        public string Password { get; set; }
+    }
+}
+
+============================================================
+FILE: iptv.Services/_User/DTOs/Updates/UserBanUpdate.cs
+============================================================
+﻿namespace iptv.Services._User.DTOs.Updates
+{
+    public class UserBanUpdate
+    {
+        public string PublicKey { get; set; }
+        public bool MakeBan { get; set; }
+    }
+}
+
+============================================================
+FILE: iptv.Services/_User/DTOs/Updates/UserArchiveUserUpdate.cs
+============================================================
+﻿namespace iptv.Services._User.DTOs.Updates
+{
+    public class UserArchiveUserUpdate
+    {
+        public string UserPublicKey { get; set; }
+        public bool ShouldArchive { get; set; }
+    }
+}
+============================================================
+FILE: iptv.Services/_User/DTOs/Results/UserFilteredForAdminResult.cs
+============================================================
+﻿using iptv.Domain.Collections;
+using iptv.Services._Common.DTOs.Results;
+
+namespace iptv.Services._User.DTOs.Results
+{
+    public class UserFilteredForAdminResult : CommonResult
+    {
+        public string PublicKey { get; set; }
+        public UserState State { get; set; }
+        public string FullName { get; set; }
+        public string NickName { get; set; }
+        public string UserName { get; set; }
+        public UserRole Role { get; set; }
+        public string RoleDescription { get; set; }
+        public List<string> Permissions { get; set; }
+        public string PhoneNumber { get; set; }
+        public string EmailAddress { get; set; }
+        public List<DateTime> LoginDates { get; set; }
+    }
+}
+============================================================
+FILE: iptv.Services/_User/DTOs/Results/UserFilteredResult.cs
+============================================================
+﻿using iptv.Domain.Collections;
+using iptv.Services._Common.DTOs.Results;
+
+namespace iptv.Services._User.DTOs.Results
+{
+    public class UserFilteredResult : CommonResult
+    {
+        public string PublicKey { get; set; }
+        public UserState State { get; set; }
+        public string FullName { get; set; }
+        public string NickName { get; set; }
+        public string UserName { get; set; }
+        public UserRole Role { get; set; }
+        public string RoleDescription { get; set; }
+        public List<string> Permissions { get; set; }
+        public string PhoneNumber { get; set; }
+        public string EmailAddress { get; set; }
+        public List<DateTime> LoginDates { get; set; }
+    }
+}
+
+============================================================
+FILE: iptv.Services/_Stream/StreamService.cs
+============================================================
+using iptv.Domain.Collections;
+using iptv.Domain.Repositories.Contracts;
+using iptv.Services._IptvNotifier.Contracts;
+using iptv.Services._Stream.Contracts;
+using iptv.Services._Stream.DTOs.Results;
+using iptv.Services._Stream.DTOs.Updates;
+using MongoDB.Driver;
+using MongoDB.Driver.Linq;
+using Utilities.Constants;
+using Utilities.Exceptions.Common;
+using Utilities.Models.Updates;
+
+namespace iptv.Services._Stream;
+
+public class StreamService(
+    IStreamRepository _streamRepository,
+    IChannelRepository _channelRepository,
+    IIptvEventPublisher _eventPublisher)
+    : IStreamService, RegisterMode.IScopedDependency
+{
+    public async Task<List<StreamFilteredResult>> GetByChannelAsync(GetGlobalIdUpdate channelId)
+    {
+        var channel = await _channelRepository.GetByChannelIdAsync(channelId.Id)
+                      ?? throw new NotFoundException("Channel not found.");
+
+        var streams = await _streamRepository
+            .AsQueryable()
+            .Where(q => q.ChannelId == channel.ChannelId && !q.Inactive)
+            .OrderByDescending(q => q.IsHealthy)
+            .ThenByDescending(q => q.QualityRank)
+            .ToListAsync();
+
+        return streams.Select(MapToResult).ToList();
+    }
+
+    public async Task<StreamPlaybackResult> GetPlaybackStreamAsync(GetGlobalIdUpdate channelId)
+    {
+        var channel = await _channelRepository.GetByChannelIdAsync(channelId.Id)
+                      ?? throw new NotFoundException("Channel not found.");
+        
+        var selected = await _streamRepository
+            .AsQueryable()
+            .Where(q => q.ChannelId == channel.ChannelId &&
+                        !q.Inactive &&
+                        q.IsHealthy &&
+                        (channel.CurrentStreamId == null || q.StreamId == channel.CurrentStreamId))
+            .OrderByDescending(q => q.QualityRank)
+            .FirstOrDefaultAsync();
+
+        selected ??= await _streamRepository
+            .AsQueryable()
+            .Where(q => q.ChannelId == channel.ChannelId && !q.Inactive && q.IsHealthy)
+            .OrderByDescending(q => q.QualityRank)
+            .FirstOrDefaultAsync()
+            ?? throw new NotFoundException(
+                "No healthy stream is currently available for this channel.");
+
+        if (channel.CurrentStreamId != selected.StreamId)
+        {
+            var update = Builders<Channels>.Update
+                .Set(q => q.CurrentStreamId, selected.StreamId)
+                .Set(q => q.ModifiedMoment, DateTime.UtcNow);
+
+            await _channelRepository.FindOneAndUpdateAsync(q => q.Id == channel.Id, update);
+        }
+
+        return new StreamPlaybackResult
+        {
+            ChannelId = channel.ChannelId,
+            StreamId = selected.StreamId,
+            StreamUri = selected.StreamUri,
+            UserAgent = selected.UserAgent,
+            Referer = selected.Referer,
+            Type = selected.Type,
+            Quality = selected.Quality
+        };
+    }
+
+    public async Task<StreamFilteredResult> ReportStreamFailureAsync(
+        StreamReportFailureUpdate update)
+    {
+        var stream = await _streamRepository.GetByStreamIdAsync(update.StreamId)
+                     ?? throw new NotFoundException("Stream not found.");
+
+        if (stream.IsHealthy)
+        {
+            var updateDef = Builders<Streams>.Update
+                .Set(q => q.IsHealthy, false)
+                .Set(q => q.LastCheckedMoment, DateTime.UtcNow)
+                .Set(q => q.ModifiedMoment, DateTime.UtcNow);
+
+            await _streamRepository.FindOneAndUpdateAsync(q => q.Id == stream.Id, updateDef);
+
+            stream.IsHealthy = false;
+        }
+
+        var replacement = await _streamRepository
+            .AsQueryable()
+            .Where(q => q.ChannelId == stream.ChannelId &&
+                        q.StreamId != stream.StreamId &&
+                        !q.Inactive &&
+                        q.IsHealthy)
+            .OrderByDescending(q => q.QualityRank)
+            .FirstOrDefaultAsync();
+
+        var channel = await _channelRepository.GetByChannelIdAsync(stream.ChannelId);
+        if (channel != null &&
+            (channel.CurrentStreamId == stream.StreamId ||
+             string.IsNullOrEmpty(channel.CurrentStreamId)))
+        {
+            var channelUpdate = Builders<Channels>.Update
+                .Set(q => q.CurrentStreamId, replacement?.StreamId)
+                .Set(q => q.ModifiedMoment, DateTime.UtcNow);
+
+            await _channelRepository.FindOneAndUpdateAsync(q => q.Id == channel.Id, channelUpdate);
+        }
+
+        await _eventPublisher.PublishStreamHealthChangedAsync(stream, replacement);
+
+        return MapToResult(stream);
+    }
+
+    public async Task<StreamFilteredResult> ActivateAsync(StreamActivateUpdate update)
+    {
+        var stream = await _streamRepository.GetByStreamIdAsync(update.StreamId)
+                     ?? throw new NotFoundException("Stream not found.");
+
+        var updateDef = Builders<Streams>.Update
+            .Set(q => q.Inactive, !update.ShouldActivate)
+            .Set(q => q.ModifiedMoment, DateTime.UtcNow);
+
+        await _streamRepository.FindOneAndUpdateAsync(q => q.Id == stream.Id, updateDef);
+
+        stream.Inactive = !update.ShouldActivate;
+
+        return MapToResult(stream);
+    }
+
+    public async Task<string> DeleteAsync(StreamDeleteUpdate update)
+    {
+        var stream = await _streamRepository.GetByStreamIdAsync(update.StreamId)
+                     ?? throw new NotFoundException("Stream not found.");
+
+        await _streamRepository.DeleteOneAsync(q => q.Id == stream.Id);
+
+        return stream.StreamId;
+    }
+
+    #region Helpers
+
+    private static StreamFilteredResult MapToResult(Streams stream)
+        => new()
+        {
+            StreamId = stream.StreamId,
+            ChannelId = stream.ChannelId,
+            Name = stream.Name,
+            StreamUri = stream.StreamUri,
+            Type = stream.Type,
+            Quality = stream.Quality,
+            IsHealthy = stream.IsHealthy,
+            Inactive = stream.Inactive,
+            LastCheckedMoment = stream.LastCheckedMoment
+        };
+
+    #endregion
+}
+
+============================================================
+FILE: iptv.Services/_Stream/Contracts/IStreamService.cs
+============================================================
+using iptv.Services._Stream.DTOs.Results;
+using iptv.Services._Stream.DTOs.Updates;
+using Utilities.Models.Updates;
+using Utilities.MongoDatabase.Filter;
+
+namespace iptv.Services._Stream.Contracts;
+
+public interface IStreamService
+{
+    Task<List<StreamFilteredResult>> GetByChannelAsync(GetGlobalIdUpdate channelId);
+
+    Task<StreamPlaybackResult> GetPlaybackStreamAsync(GetGlobalIdUpdate channelId);
+
+    Task<StreamFilteredResult> ReportStreamFailureAsync(StreamReportFailureUpdate update);
+
+    Task<StreamFilteredResult> ActivateAsync(StreamActivateUpdate update);
+
+    Task<string> DeleteAsync(StreamDeleteUpdate update);
+}
+
+============================================================
+FILE: iptv.Services/_Stream/DTOs/Updates/StreamDeleteUpdate.cs
+============================================================
+using Utilities.Attributes;
+
+namespace iptv.Services._Stream.DTOs.Updates;
+
+public class StreamDeleteUpdate
+{
+    [StringInputValidation] public string StreamId { get; set; }
+}
+============================================================
+FILE: iptv.Services/_Stream/DTOs/Updates/StreamReportFailureUpdate.cs
+============================================================
+using Utilities.Attributes;
+
+namespace iptv.Services._Stream.DTOs.Updates;
+
+public class StreamReportFailureUpdate
+{
+    [StringInputValidation] public string StreamId { get; set; }
+}
+============================================================
+FILE: iptv.Services/_Stream/DTOs/Updates/StreamActivateUpdate.cs
+============================================================
+using Utilities.Attributes;
+
+namespace iptv.Services._Stream.DTOs.Updates;
+
+public class StreamActivateUpdate
+{
+    [StringInputValidation] public string StreamId { get; set; }
+    public required bool ShouldActivate { get; set; }
+}
+
+============================================================
+FILE: iptv.Services/_Stream/DTOs/Results/StreamFilteredResult.cs
+============================================================
+namespace iptv.Services._Stream.DTOs.Results;
+
+public class StreamFilteredResult
+{
+    public string StreamId { get; set; }
+    public string ChannelId { get; set; }
+    public string Name { get; set; }
+    public string StreamUri { get; set; }
+    public string Type { get; set; }
+    public string? Quality { get; set; }
+    public bool IsHealthy { get; set; }
+    public bool Inactive { get; set; }
+    public DateTime? LastCheckedMoment { get; set; }
+}
+
+============================================================
+FILE: iptv.Services/_Stream/DTOs/Results/StreamPlaybackResult.cs
+============================================================
+namespace iptv.Services._Stream.DTOs.Results;
+
+public class StreamPlaybackResult
+{
+    public string ChannelId { get; set; }
+    public string StreamId { get; set; }
+    public string StreamUri { get; set; }
+    public string UserAgent { get; set; }
+    public string Referer { get; set; }
+    public string Type { get; set; }
+    public string? Quality { get; set; }
+}

@@ -28,7 +28,7 @@ namespace Utilities.Configuration
         {
             services.AddControllers().AddJsonOptions(options =>
             {
-                options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+                options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.Never;
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             }).ConfigureApiBehaviorOptions(options =>
             {
