@@ -32,7 +32,7 @@ namespace iptv.Api.Utilities.MiddleWares
             var origin = httpContext.Request.Headers["Origin"].ToString();
 
             // Check if the Origin matches allowed domains
-            if (origin == "https://herkoul.com" || origin == "https://mp.herkoul.com" || origin == "https://api.herkoul.com")
+            if (origin == "https://rima.com" || origin == "https://mp.rima.com" || origin == "https://api.rima.com")
             {
                 httpContext.Response.Headers.Append("Access-Control-Allow-Origin", origin);
                 httpContext.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
@@ -55,7 +55,7 @@ namespace iptv.Api.Utilities.MiddleWares
             httpContext.Response.Headers.Append("X-Content-Type-Options", "nosniff");
             httpContext.Response.Headers.Append("X-Frame-Options", "DENY");
             httpContext.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
-            httpContext.Response.Headers.Append("Content-Security-Policy", "frame-ancestors 'self' https://herkoul.com https://panel.herkoul.com https://api.herkoul.com");
+            httpContext.Response.Headers.Append("Content-Security-Policy", "frame-ancestors 'self' https://rima.com https://panel.rima.com https://api.rima.com");
             httpContext.Response.Headers.Remove("server");
         }
     }

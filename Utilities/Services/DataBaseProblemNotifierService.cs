@@ -9,7 +9,7 @@ namespace Utilities.Services
 
         public static async Task Notify(string? message)
         {
-            message ??= "Herkoul DataBase is down ⚠⚠";
+            message ??= "Rima DataBase is down ⚠⚠";
 
             using HttpClient client = new();
 

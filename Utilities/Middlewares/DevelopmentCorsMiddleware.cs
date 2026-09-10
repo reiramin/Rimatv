@@ -6,35 +6,37 @@ namespace Utilities.Middlewares
     {
         public async Task InvokeAsync(HttpContext httpContext)
         {
-            addHeaders(httpContext);
+            AddHeaders(httpContext);
 
-            if (httpContext.Request.Method == "OPTIONS")
+            if (HttpMethods.IsOptions(httpContext.Request.Method))
             {
-                httpContext.Response.StatusCode = 200;
+                httpContext.Response.StatusCode = StatusCodes.Status204NoContent;
+                return;
+            }
 
-                await httpContext.Response.WriteAsync("OK");
-            }
-            else
-            {
-                await next(httpContext);
-            }
+            await next(httpContext);
         }
 
-        public void addHeaders(HttpContext httpContext)
+        private static void AddHeaders(HttpContext httpContext)
         {
-            httpContext.Response.Headers.Append("Access-Control-Allow-Origin", new[] { "*" });
-            httpContext.Response.Headers.Append("Access-Control-Allow-Headers", new[] {
-                "Origin, X-Requested-With, Content-Type, Accept, Authorization","ApplicationId","Nonce","Signature"
-            });
-            httpContext.Response.Headers.Append("Access-Control-Allow-Methods", new[] { "GET, POST, PUT, DELETE, OPTIONS" });
-            httpContext.Response.Headers.Append("Access-Control-Allow-Credentials", new[] { "true" });
+            httpContext.Response.Headers["Access-Control-Allow-Origin"] = "*";
 
-            //Security Headers
-            httpContext.Response.Headers.Append("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; frame-src 'self'");
-            httpContext.Response.Headers.Append("X-Content-Type-Options", "nosniff");
-            httpContext.Response.Headers.Append("X-Frame-Options", "DENY");
-            httpContext.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
-            httpContext.Response.Headers.Remove("server");
+            httpContext.Response.Headers["Access-Control-Allow-Headers"] =
+                "Origin, X-Requested-With, Content-Type, Accept, Authorization, ApplicationId, Nonce, Signature, x-signalr-user-agent";
+
+            httpContext.Response.Headers["Access-Control-Allow-Methods"] =
+                "GET, POST, PUT, DELETE, OPTIONS";
+
+            httpContext.Response.Headers["Vary"] = "Origin";
+
+            httpContext.Response.Headers["Content-Security-Policy"] =
+                "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; frame-src 'self'";
+
+            httpContext.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            httpContext.Response.Headers["X-Frame-Options"] = "DENY";
+            httpContext.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+
+            httpContext.Response.Headers.Remove("Server");
         }
     }
 }

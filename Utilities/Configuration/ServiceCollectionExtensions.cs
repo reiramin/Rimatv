@@ -128,11 +128,9 @@ namespace Utilities.Configuration
             services.RegisterSetting<FirewallSettings>(configuration.GetSection(nameof(FirewallSettings)));
 
             services.RegisterSetting<CaptchaSettings>(configuration.GetSection(nameof(CaptchaSettings)));
-            services.RegisterSetting<GhasedakConnectionSetting>(configuration.GetSection(nameof(GhasedakConnectionSetting)));
 
             //services.RegisterSetting<EmailSettings>(configuration.GetSection(nameof(EmailSettings)));
 
-            //services.RegisterSetting<TelegramBotSettings>(configuration.GetSection(nameof(TelegramBotSettings)));
         }
 
         #region Private Methods

@@ -21,13 +21,21 @@ namespace iptv.Api.Controllers.V1
     [IgnoreSignature]
     public class ChannelController(IChannelService _channelService) : ApiBaseController
     {
-        [HttpPost("[action]")]
+        [HttpGet("[action]")]
+        [CustomRateLimit]
+        [SwaggerOperation(Summary = "Get only curated whitelist channels, deduplicated across providers.",
+            Tags = ["Channel"])]
+        public async Task<List<ChannelWithStreamResult>> GetCuratedListWithStreamAsync(
+            CancellationToken cancellationToken)
+            => await _channelService.GetCuratedListWithStreamAsync(cancellationToken);
+
+        [HttpGet("[action]")]
         [SwaggerOperation(
-            Summary = "Get all active channels with their best stream — for Flutter landing.",
+            Summary = "Get all active channels with their best stream— for Flutter landing.",
             Tags = ["Channel"])]
         [CustomRateLimit]
-        public async Task<MonjoFilteredResult<ChannelWithStreamResult>> GetAllWithStreamAsync(
-            MonjoQuery query) => await _channelService.GetAllWithStreamAsync(query);
+        public async Task<List<AllChannelWithStreamResult>> GetAllUnpagedWithStreamAsync()
+            => await _channelService.GetAllUnpagedWithStreamAsync();
 
         [HttpPost("[action]")]
         [CustomRateLimit]

@@ -22,20 +22,13 @@ namespace iptv.Api.Utilities.Configurations
 
             services.RegisterSetting<FirewallSettings>(configuration.GetSection(nameof(FirewallSettings)));
 
-            services.RegisterSetting<CaptchaSettings>(configuration.GetSection(nameof(CaptchaSettings)));
+            // services.RegisterSetting<CaptchaSettings>(configuration.GetSection(nameof(CaptchaSettings)));
 
-            services.RegisterSetting<EmailSettings>(configuration.GetSection(nameof(EmailSettings)));
+            // services.RegisterSetting<EmailSettings>(configuration.GetSection(nameof(EmailSettings)));
 
             services.RegisterSetting<AppSettings>(configuration.GetSection(nameof(AppSettings)));
             
-            services.RegisterSetting<IRTHandlerSettings>(configuration.GetSection(nameof(IRTHandlerSettings)));
-            
-            // services.RegisterSetting<OutboundProxySettings>(configuration.GetSection(nameof(OutboundProxySettings)));
 
-            // services.RegisterSetting<FileSettings>(configuration.GetSection(nameof(FileSettings)));
-            // services.RegisterSetting<FileStorageSettings>(configuration.GetSection("FileStorage"));
-            //
-            // services.RegisterSetting<S3Settings>(configuration.GetSection(nameof(S3Settings)));
         }
 
         private static void RegisterSetting<TSettings>(this IServiceCollection services, IConfigurationSection configuration)

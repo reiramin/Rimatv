@@ -1,31 +1,40 @@
-version: '3.8'
-
 services:
-  # ----------------------------------------------------------
-  # سرویس بک‌اند دات‌نت IPTV
-  # ----------------------------------------------------------
   iptv-api:
     build:
       context: .
       dockerfile: Dockerfile
+
     container_name: iptv_api_container
-    restart: always
+
+    restart: unless-stopped
+
     ports:
-      - "5115:8080"
+      - "5115:10000"
+
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development 
-      - MonjoSettings__ConnectionString=mongodb://iptv_mongodb:27017/iptv?retryWrites=true
-      - MonjoSettings__DatabaseName=iptv
-      - StreamProxySettings__Enabled=true
-      - StreamProxySettings__WorkerUrl=https://iptv-proxy.YOUR_SUBDOMAIN.workers.dev
-    depends_on:
-      - iptv-mongo
+      ASPNETCORE_ENVIRONMENT: Production
+
+      MonjoSettings__ConnectionString: ${MONGO_CONNECTION_STRING}
+      MonjoSettings__DatabaseName: ${MONGO_DATABASE_NAME}
+
+      JwtServiceSettings__Issuer: ${JWT_ISSUER}
+      JwtServiceSettings__Audience: ${JWT_AUDIENCE}
+      JwtServiceSettings__SignatureKey: ${JWT_SIGNATURE_KEY}
+      JwtServiceSettings__EncryptionKey: ${JWT_ENCRYPTION_KEY}
+      JwtServiceSettings__AccessTokenExpiresAfterHours: ${JWT_ACCESS_TOKEN_HOURS}
+      JwtServiceSettings__RefreshTokenExpiresAfterDays: ${JWT_REFRESH_TOKEN_DAYS}
+
+      ApplicationPoolSettings__Applications__0__ApplicationId: ${APPLICATION_ID}
+      ApplicationPoolSettings__Applications__0__PreSharedKey: ${APPLICATION_PRESHARED_KEY}
+      ApplicationPoolSettings__Applications__0__MasterSignature: ${APPLICATION_MASTER_SIGNATURE}
+
+      CaptchaSettings__BaseUrl: ${CAPTCHA_BASE_URL}
+      AppSettings__BaseUrl: ${APP_BASE_URL}
+      AllowedHosts: ${ALLOWED_HOSTS}
+
     networks:
       - iptv-network
 
 networks:
   iptv-network:
     driver: bridge
-
-volumes:
-  mongo_data:

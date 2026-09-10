@@ -37,7 +37,7 @@ public class StreamService(
     {
         var channel = await _channelRepository.GetByChannelIdAsync(channelId.Id)
                       ?? throw new NotFoundException("Channel not found.");
-        
+
         var selected = await _streamRepository
             .AsQueryable()
             .Where(q => q.ChannelId == channel.ChannelId &&
@@ -48,12 +48,12 @@ public class StreamService(
             .FirstOrDefaultAsync();
 
         selected ??= await _streamRepository
-            .AsQueryable()
-            .Where(q => q.ChannelId == channel.ChannelId && !q.Inactive && q.IsHealthy)
-            .OrderByDescending(q => q.QualityRank)
-            .FirstOrDefaultAsync()
-            ?? throw new NotFoundException(
-                "No healthy stream is currently available for this channel.");
+                         .AsQueryable()
+                         .Where(q => q.ChannelId == channel.ChannelId && !q.Inactive && q.IsHealthy)
+                         .OrderByDescending(q => q.QualityRank)
+                         .FirstOrDefaultAsync()
+                     ?? throw new NotFoundException(
+                         "No healthy stream is currently available for this channel.");
 
         if (channel.CurrentStreamId != selected.StreamId)
         {
@@ -116,7 +116,9 @@ public class StreamService(
 
         await _eventPublisher.PublishStreamHealthChangedAsync(stream, replacement);
 
-        return MapToResult(stream);
+        return replacement != null
+            ? MapToResult(replacement)
+            : MapToResult(stream);
     }
 
     public async Task<StreamFilteredResult> ActivateAsync(StreamActivateUpdate update)
