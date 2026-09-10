@@ -50,10 +50,11 @@ app.UseHsts(app.Environment);
 
 app.UseDeveloperExceptionPage(app.Environment);
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwaggerAndUI();
-}
+// if (app.Environment.IsDevelopment())
+// {
+//     app.UseSwaggerAndUI();
+// }
+app.UseSwaggerAndUI();
 
 app.UseCustomExceptionHandler();
 
