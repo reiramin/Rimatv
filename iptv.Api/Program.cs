@@ -50,11 +50,9 @@ app.UseHsts(app.Environment);
 
 app.UseDeveloperExceptionPage(app.Environment);
 
-// if (app.Environment.IsDevelopment())
-// {
-//     app.UseSwaggerAndUI();
-// }
 app.UseSwaggerAndUI();
+
+app.UseRouting();
 
 app.UseCustomExceptionHandler();
 
@@ -65,8 +63,6 @@ app.UseFirewall();
 app.UseSignature();
 
 app.UseJwt();
-
-app.UseRouting();
 
 app.UseSecurityStamp();
 
