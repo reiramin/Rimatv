@@ -37,9 +37,9 @@ namespace iptv.Api.Controllers.V1
         [HttpPost("[action]")]
         [Authorize]
         [CustomRateLimit]
-        [SwaggerOperation(Summary = "Report a failing stream; another healthy stream is selected automatically.",
+        [SwaggerOperation(Summary = "Report a failing stream; a replacement is selected across all providers of the canonical channel.",
             Tags = ["Stream"])]
-        public async Task<StreamFilteredResult> ReportFailureAsync(StreamReportFailureUpdate update)
+        public async Task<StreamReportFailureResult> ReportFailureAsync(StreamReportFailureUpdate update)
             => await _streamService.ReportStreamFailureAsync(update);
 
         #region Admin Actions

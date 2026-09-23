@@ -42,6 +42,10 @@ public class Streams : BaseDocument
     public DateTime? LastClientFailureMoment { get; set; }
     public List<ClientFailureReport> RecentClientFailures { get; set; } = [];
 
+    // Set when >=3 distinct users reported within the window; excludes the stream from selection
+    // until this moment (natural decay, no background job).
+    public DateTime? ClientFailingUntil { get; set; }
+
     public DateTime? LastCheckedMoment { get; set; }
 
     public string DataHash { get; set; }
