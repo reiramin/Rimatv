@@ -1,0 +1,3227 @@
+{
+ "iran": [
+  {
+   "id": "IRIB1.ir",
+   "name": "IRIB 1",
+   "streams": 1
+  },
+  {
+   "id": "IRIB2.ir",
+   "name": "IRIB 2",
+   "streams": 1
+  },
+  {
+   "id": "IRIB3.ir",
+   "name": "IRIB 3",
+   "streams": 1
+  },
+  {
+   "id": "IRIB4.ir",
+   "name": "IRIB 4",
+   "streams": 1
+  },
+  {
+   "id": "IRINN.ir",
+   "name": "IRINN",
+   "streams": 2
+  },
+  {
+   "id": "IRIBOmid.ir",
+   "name": "IRIB Omid",
+   "streams": 1
+  },
+  {
+   "id": "Nasim.ir",
+   "name": "Nasim",
+   "streams": 1
+  },
+  {
+   "id": "NamayeshTV.ir",
+   "name": "Namayesh TV",
+   "streams": 1
+  },
+  {
+   "id": "Tamasha.ir",
+   "name": "Tamasha",
+   "streams": 1
+  },
+  {
+   "id": "VarzeshTV.ir",
+   "name": "Varzesh TV",
+   "streams": 1
+  },
+  {
+   "id": "IRIBMostanad.ir",
+   "name": "IRIB Mostanad",
+   "streams": 1
+  },
+  {
+   "id": "OfoghTV.ir",
+   "name": "Ofogh TV",
+   "streams": 1
+  },
+  {
+   "id": "PooyaTV.ir",
+   "name": "Pooya TV",
+   "streams": 1
+  },
+  {
+   "id": "AmouzeshTV.ir",
+   "name": "Amouzesh TV",
+   "streams": 1
+  },
+  {
+   "id": "SalamatTV.ir",
+   "name": "Salamat TV",
+   "streams": 1
+  },
+  {
+   "id": "QuranTV.ir",
+   "name": "Quran TV",
+   "streams": 1
+  },
+  {
+   "id": "TehranTV.ir",
+   "name": "Tehran TV",
+   "streams": 1
+  },
+  {
+   "id": "iFilmPersian.ir",
+   "name": "iFilm Persian",
+   "streams": 2
+  },
+  {
+   "id": "iFilm2.ir",
+   "name": "iFilm 2",
+   "streams": 1
+  },
+  {
+   "id": "IRIBUHD.ir",
+   "name": "IRIB UHD",
+   "streams": 1
+  },
+  {
+   "id": "PressTV.ir",
+   "name": "Press TV",
+   "streams": 2
+  },
+  {
+   "id": "AlAlam.ir",
+   "name": "Al Alam",
+   "streams": 1
+  },
+  {
+   "id": "HispanTV.ir",
+   "name": "Hispan TV",
+   "streams": 1
+  },
+  {
+   "id": "iFilmEnglish.ir",
+   "name": "iFilm English",
+   "streams": 1
+  },
+  {
+   "id": "iFilmArabic.ir",
+   "name": "iFilm Arabic",
+   "streams": 1
+  },
+  {
+   "id": "SepehrTV.ir",
+   "name": "Sepehr TV",
+   "streams": 1
+  },
+  {
+   "id": "JahanbinTV.ir",
+   "name": "Jahanbin TV",
+   "streams": 1
+  },
+  {
+   "id": "KishTV.ir",
+   "name": "Kish TV",
+   "streams": 1
+  },
+  {
+   "id": "AflakTV.ir",
+   "name": "Aflak TV",
+   "streams": 1
+  }
+ ],
+ "iran-foreign": [
+  {
+   "id": "IranInternational.uk",
+   "name": "Iran International",
+   "streams": 5,
+   "country": "UK"
+  },
+  {
+   "id": "BBCPersian.uk",
+   "name": "BBC Persian",
+   "streams": 8,
+   "country": "UK"
+  },
+  {
+   "id": "Manoto.uk",
+   "name": "Manoto",
+   "streams": 1,
+   "country": "UK"
+  },
+  {
+   "id": "VoATVPersian.us",
+   "name": "VoA TV Persian",
+   "streams": 2,
+   "country": "US"
+  },
+  {
+   "id": "GEMTV.tr",
+   "name": "GEM TV",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "MBCPersia.ae",
+   "name": "MBC Persia",
+   "streams": 2,
+   "country": "AE"
+  },
+  {
+   "id": "IraneFardaTV.uk",
+   "name": "IraneFarda TV",
+   "streams": 1,
+   "country": "UK"
+  },
+  {
+   "id": "KalemehTV.uk",
+   "name": "Kalemeh TV",
+   "streams": 2,
+   "country": "UK"
+  },
+  {
+   "id": "PBCTapeshTV.us",
+   "name": "PBC Tapesh TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "ParsTV.us",
+   "name": "Pars TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "OmideIranTV.us",
+   "name": "Omid e Iran TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "TinTV.us",
+   "name": "Tin TV",
+   "streams": 2,
+   "country": "US"
+  },
+  {
+   "id": "SimayeAzadi.uk",
+   "name": "Simaye Azadi",
+   "streams": 1,
+   "country": "UK"
+  },
+  {
+   "id": "GEMRiver.tr",
+   "name": "GEM River",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMSeriesPlus.tr",
+   "name": "GEM Series +",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMBollywood.tr",
+   "name": "GEM Bollywood",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMKids.tr",
+   "name": "GEM Kids",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "PersianaCinema.fr",
+   "name": "Persiana Cinema",
+   "streams": 2,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaIranian.fr",
+   "name": "Persiana Iranian",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaFamily.fr",
+   "name": "Persiana Family",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PMC.ae",
+   "name": "PMC",
+   "streams": 1,
+   "country": "AE"
+  },
+  {
+   "id": "PMCRoyale.ae",
+   "name": "PMC Royale",
+   "streams": 1,
+   "country": "AE"
+  },
+  {
+   "id": "Sat7Pars.cy",
+   "name": "Sat 7 Pars",
+   "streams": 1,
+   "country": "CY"
+  },
+  {
+   "id": "MohabatTV.us",
+   "name": "Mohabat TV",
+   "streams": 2,
+   "country": "US"
+  },
+  {
+   "id": "NavahangTV.fi",
+   "name": "Navahang TV",
+   "streams": 2,
+   "country": "FI"
+  }
+ ],
+ "tr": [
+  {
+   "id": "TRT1.tr",
+   "name": "TRT 1",
+   "streams": 1
+  },
+  {
+   "id": "TRTHaber.tr",
+   "name": "TRT Haber",
+   "streams": 1
+  },
+  {
+   "id": "TRTWorld.tr",
+   "name": "TRT World",
+   "streams": 3
+  },
+  {
+   "id": "TRTSpor.tr",
+   "name": "TRT Spor",
+   "streams": 1
+  },
+  {
+   "id": "TRTCocuk.tr",
+   "name": "TRT Cocuk",
+   "streams": 1
+  },
+  {
+   "id": "TRTBelgesel.tr",
+   "name": "TRT Belgesel",
+   "streams": 2
+  },
+  {
+   "id": "ATV.tr",
+   "name": "ATV",
+   "streams": 2
+  },
+  {
+   "id": "ShowTurk.tr",
+   "name": "Show Turk",
+   "streams": 1
+  },
+  {
+   "id": "StarTV.tr",
+   "name": "Star TV",
+   "streams": 1
+  },
+  {
+   "id": "KanalD.tr",
+   "name": "Kanal D",
+   "streams": 1
+  },
+  {
+   "id": "TV8.tr",
+   "name": "TV8",
+   "streams": 2
+  },
+  {
+   "id": "NOWTV.tr",
+   "name": "NOW TV",
+   "streams": 2
+  },
+  {
+   "id": "Kanal7.tr",
+   "name": "Kanal 7",
+   "streams": 2
+  },
+  {
+   "id": "BeyazTV.tr",
+   "name": "Beyaz TV",
+   "streams": 1
+  },
+  {
+   "id": "TV100.tr",
+   "name": "TV 100",
+   "streams": 1
+  },
+  {
+   "id": "NTV.tr",
+   "name": "NTV",
+   "streams": 1
+  },
+  {
+   "id": "HaberturkTV.tr",
+   "name": "Haberturk TV",
+   "streams": 1
+  },
+  {
+   "id": "HaberGlobal.tr",
+   "name": "Haber Global",
+   "streams": 1
+  },
+  {
+   "id": "AHaber.tr",
+   "name": "A Haber",
+   "streams": 1
+  },
+  {
+   "id": "TGRTHaber.tr",
+   "name": "TGRT Haber",
+   "streams": 2
+  },
+  {
+   "id": "HalkTV.tr",
+   "name": "Halk TV",
+   "streams": 1
+  },
+  {
+   "id": "Tele1.tr",
+   "name": "Tele 1",
+   "streams": 1
+  },
+  {
+   "id": "DreamTurk.tr",
+   "name": "Dream Turk",
+   "streams": 1
+  },
+  {
+   "id": "KralPopTV.tr",
+   "name": "Kral Pop TV",
+   "streams": 1
+  },
+  {
+   "id": "TRTTurk.tr",
+   "name": "TRT Turk",
+   "streams": 1
+  },
+  {
+   "id": "TRTMuzik.tr",
+   "name": "TRT Muzik",
+   "streams": 2
+  }
+ ],
+ "az": [
+  {
+   "id": "AzTV.az",
+   "name": "Az TV",
+   "streams": 3
+  },
+  {
+   "id": "IctimaiTV.az",
+   "name": "Ictimai TV",
+   "streams": 1
+  },
+  {
+   "id": "MedeniyyetTV.az",
+   "name": "Medeniyyet TV",
+   "streams": 1
+  },
+  {
+   "id": "CBCSport.az",
+   "name": "CBC Sport",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "APATv.az",
+   "name": "APA Tv",
+   "streams": 1
+  },
+  {
+   "id": "BakuTV.az",
+   "name": "Baku.TV",
+   "streams": 1
+  },
+  {
+   "id": "XezerTV.az",
+   "name": "Xezer TV",
+   "streams": 1
+  },
+  {
+   "id": "ELTV.az",
+   "name": "EL TV",
+   "streams": 2
+  },
+  {
+   "id": "KanalS.az",
+   "name": "Kanal S",
+   "streams": 1
+  },
+  {
+   "id": "NaxcivanTV.az",
+   "name": "Naxcivan TV",
+   "streams": 1
+  },
+  {
+   "id": "AnewZTV.az",
+   "name": "AnewZ TV",
+   "streams": 1
+  },
+  {
+   "id": "VilayetTV.az",
+   "name": "Vilayet TV",
+   "streams": 1
+  },
+  {
+   "id": "KapazTV.az",
+   "name": "Kapaz TV",
+   "streams": 1
+  },
+  {
+   "id": "Kanal35.az",
+   "name": "Kanal 35",
+   "streams": 1
+  },
+  {
+   "id": "AyazTV.az",
+   "name": "Ayaz TV",
+   "streams": 1
+  }
+ ],
+ "ae": [
+  {
+   "id": "SkyNewsArabia.ae",
+   "name": "Sky News Arabia",
+   "streams": 3
+  },
+  {
+   "id": "Alarabiya.ae",
+   "name": "Alarabiya",
+   "streams": 4
+  },
+  {
+   "id": "AlArabiyaBusiness.ae",
+   "name": "Al Arabiya Business",
+   "streams": 1
+  },
+  {
+   "id": "CNBCArabiya.ae",
+   "name": "CNBC Arabiya",
+   "streams": 1
+  },
+  {
+   "id": "MBC1.ae",
+   "name": "MBC 1",
+   "streams": 1
+  },
+  {
+   "id": "MBCDrama.ae",
+   "name": "MBC Drama",
+   "streams": 1
+  },
+  {
+   "id": "MBC4.ae",
+   "name": "MBC 4",
+   "streams": 1
+  },
+  {
+   "id": "MBC5.ae",
+   "name": "MBC 5",
+   "streams": 1
+  },
+  {
+   "id": "MBCBollywood.ae",
+   "name": "MBC Bollywood",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "DubaiTVInternational.ae",
+   "name": "Dubai TV International",
+   "streams": 1
+  },
+  {
+   "id": "SharjahTV.ae",
+   "name": "Sharjah TV",
+   "streams": 2
+  },
+  {
+   "id": "SharjahSports.ae",
+   "name": "Sharjah Sports",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "Sharjah2.ae",
+   "name": "Sharjah 2",
+   "streams": 1
+  },
+  {
+   "id": "AjmanTV.ae",
+   "name": "Ajman TV",
+   "streams": 1
+  },
+  {
+   "id": "FujairahTV.ae",
+   "name": "Fujairah TV",
+   "streams": 1
+  },
+  {
+   "id": "SpacetoonArabic.ae",
+   "name": "Spacetoon Arabic",
+   "streams": 1
+  },
+  {
+   "id": "MBCPersia.ae",
+   "name": "MBC Persia",
+   "streams": 2
+  },
+  {
+   "id": "AlYaumTV.ae",
+   "name": "Al Yaum TV",
+   "streams": 1
+  }
+ ],
+ "qa": [
+  {
+   "id": "AlJazeera.qa",
+   "name": "Al Jazeera",
+   "streams": 18
+  },
+  {
+   "id": "AlJazeeraMubasher.qa",
+   "name": "Al Jazeera Mubasher",
+   "streams": 4
+  },
+  {
+   "id": "AlJazeeraDocumentary.qa",
+   "name": "Al Jazeera Documentary",
+   "streams": 4,
+   "geo_blocked": true
+  },
+  {
+   "id": "AlJazeera2.qa",
+   "name": "Al Jazeera 2",
+   "streams": 1
+  },
+  {
+   "id": "AlJazeeraMubasher24.qa",
+   "name": "Al Jazeera Mubasher 24",
+   "streams": 3
+  },
+  {
+   "id": "AlArabyTV.qa",
+   "name": "Al Araby TV",
+   "streams": 2
+  },
+  {
+   "id": "AlArabyTV2.qa",
+   "name": "Al Araby TV 2",
+   "streams": 3
+  },
+  {
+   "id": "QatarTelevision.qa",
+   "name": "Qatar Television",
+   "streams": 3
+  },
+  {
+   "id": "QatarTelevision2.qa",
+   "name": "Qatar Television 2",
+   "streams": 4
+  },
+  {
+   "id": "AlRayyanTV.qa",
+   "name": "Al Rayyan TV",
+   "streams": 2
+  },
+  {
+   "id": "AlkassThree.qa",
+   "name": "Alkass Three",
+   "streams": 1
+  },
+  {
+   "id": "QBC.qa",
+   "name": "QBC",
+   "streams": 2
+  },
+  {
+   "id": "AlRayyanOldTV.qa",
+   "name": "Al Rayyan Old TV",
+   "streams": 2
+  },
+  {
+   "id": "QatarTVTheHolyQuran.qa",
+   "name": "Qatar TV The Holy Quran",
+   "streams": 1
+  }
+ ],
+ "af": [
+  {
+   "id": "ToloTV.af",
+   "name": "Tolo TV",
+   "streams": 1
+  },
+  {
+   "id": "TOLOnews.af",
+   "name": "TOLOnews",
+   "streams": 1
+  },
+  {
+   "id": "ShamshadTV.af",
+   "name": "Shamshad TV",
+   "streams": 1
+  },
+  {
+   "id": "LemarTV.af",
+   "name": "Lemar TV",
+   "streams": 1
+  },
+  {
+   "id": "RTA.af",
+   "name": "RTA",
+   "streams": 1
+  },
+  {
+   "id": "AMC.af",
+   "name": "AMC",
+   "streams": 1
+  },
+  {
+   "id": "BaharTV.af",
+   "name": "Bahar TV",
+   "streams": 1
+  },
+  {
+   "id": "DunyaNawTV.af",
+   "name": "Dunya Naw TV",
+   "streams": 1
+  },
+  {
+   "id": "HewadTV.af",
+   "name": "Hewad TV",
+   "streams": 1
+  },
+  {
+   "id": "KayhanTV.af",
+   "name": "Kayhan TV",
+   "streams": 1
+  },
+  {
+   "id": "ShamsTV.af",
+   "name": "Shams TV",
+   "streams": 1
+  },
+  {
+   "id": "EslahTV.af",
+   "name": "Eslah TV",
+   "streams": 1
+  },
+  {
+   "id": "TamadonTV.af",
+   "name": "Tamadon TV",
+   "streams": 1
+  },
+  {
+   "id": "SharqRadioTV.af",
+   "name": "Sharq Radio TV",
+   "streams": 1
+  }
+ ],
+ "in": [
+  {
+   "id": "DDNational.in",
+   "name": "DD National",
+   "streams": 6
+  },
+  {
+   "id": "DDNews.in",
+   "name": "DD News",
+   "streams": 3
+  },
+  {
+   "id": "DDIndia.in",
+   "name": "DD India",
+   "streams": 6
+  },
+  {
+   "id": "AajTak.in",
+   "name": "Aaj Tak",
+   "streams": 6
+  },
+  {
+   "id": "IndiaToday.in",
+   "name": "India Today",
+   "streams": 4
+  },
+  {
+   "id": "NDTV24x7.in",
+   "name": "NDTV 24x7",
+   "streams": 2
+  },
+  {
+   "id": "NDTVIndia.in",
+   "name": "NDTV India",
+   "streams": 3
+  },
+  {
+   "id": "ABPNews.in",
+   "name": "ABP News",
+   "streams": 4
+  },
+  {
+   "id": "RepublicTV.in",
+   "name": "Republic TV",
+   "streams": 5
+  },
+  {
+   "id": "RepublicBharat.in",
+   "name": "Republic Bharat",
+   "streams": 4
+  },
+  {
+   "id": "ZeeNews.in",
+   "name": "Zee News",
+   "streams": 4
+  },
+  {
+   "id": "IndiaTV.in",
+   "name": "India TV",
+   "streams": 2
+  },
+  {
+   "id": "WION.in",
+   "name": "WION",
+   "streams": 9
+  },
+  {
+   "id": "TimesNow.in",
+   "name": "Times Now",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "TimesNowNavbharat.in",
+   "name": "Times Now Navbharat",
+   "streams": 5
+  },
+  {
+   "id": "News18India.in",
+   "name": "News18 India",
+   "streams": 1
+  },
+  {
+   "id": "SansadTV1.in",
+   "name": "Sansad TV 1",
+   "streams": 3
+  },
+  {
+   "id": "DDSports.in",
+   "name": "DD Sports",
+   "streams": 4
+  },
+  {
+   "id": "StarPlus.in",
+   "name": "StarPlus",
+   "streams": 3
+  },
+  {
+   "id": "SonyEntertainmentTelevision.in",
+   "name": "Sony Entertainment Television",
+   "streams": 2
+  }
+ ],
+ "iq": [
+  {
+   "id": "AlIraqia.iq",
+   "name": "Al Iraqia",
+   "streams": 1
+  },
+  {
+   "id": "AlIraqiaNews.iq",
+   "name": "Al Iraqia News",
+   "streams": 1
+  },
+  {
+   "id": "AlIraqiaSport.iq",
+   "name": "Al Iraqia Sport",
+   "streams": 1
+  },
+  {
+   "id": "AlSharqiya.iq",
+   "name": "Al Sharqiya",
+   "streams": 2
+  },
+  {
+   "id": "AlSharqiyaNews.iq",
+   "name": "Al Sharqiya News",
+   "streams": 1
+  },
+  {
+   "id": "RudawTV.iq",
+   "name": "Rudaw TV",
+   "streams": 2
+  },
+  {
+   "id": "Kurdistan24.iq",
+   "name": "Kurdistan 24",
+   "streams": 1
+  },
+  {
+   "id": "KurdistanTV.iq",
+   "name": "Kurdistan TV",
+   "streams": 1
+  },
+  {
+   "id": "Kurdsat.iq",
+   "name": "Kurdsat",
+   "streams": 2
+  },
+  {
+   "id": "KurdsatNews.iq",
+   "name": "Kurdsat News",
+   "streams": 1
+  },
+  {
+   "id": "NRTTV.iq",
+   "name": "NRT TV",
+   "streams": 1
+  },
+  {
+   "id": "DijlahTV.iq",
+   "name": "Dijlah TV",
+   "streams": 1
+  },
+  {
+   "id": "UTV.iq",
+   "name": "UTV",
+   "streams": 1
+  },
+  {
+   "id": "INews.iq",
+   "name": "I News",
+   "streams": 1
+  },
+  {
+   "id": "MBCIraq.iq",
+   "name": "MBC Iraq",
+   "streams": 1
+  },
+  {
+   "id": "AlRasheedTV.iq",
+   "name": "Al Rasheed TV",
+   "streams": 1
+  },
+  {
+   "id": "ImamHusseinTV1.iq",
+   "name": "Imam Hussein TV 1",
+   "streams": 2
+  },
+  {
+   "id": "AfaqTV.iq",
+   "name": "Afaq TV",
+   "streams": 1
+  },
+  {
+   "id": "AlabbassiaTV.iq",
+   "name": "Alabbassia TV",
+   "streams": 1
+  }
+ ],
+ "de": [
+  {
+   "id": "DasErste.de",
+   "name": "Das Erste",
+   "streams": 1
+  },
+  {
+   "id": "ZDF.de",
+   "name": "ZDF",
+   "streams": 2
+  },
+  {
+   "id": "ZDFinfo.de",
+   "name": "ZDFinfo",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "ZDFneo.de",
+   "name": "ZDFneo",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "arte.de",
+   "name": "arte",
+   "streams": 2
+  },
+  {
+   "id": "3sat.de",
+   "name": "3sat",
+   "streams": 2
+  },
+  {
+   "id": "phoenix.de",
+   "name": "phoenix",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "tagesschau24.de",
+   "name": "tagesschau24",
+   "streams": 1
+  },
+  {
+   "id": "ARDalpha.de",
+   "name": "ARD-alpha",
+   "streams": 2
+  },
+  {
+   "id": "KiKA.de",
+   "name": "KiKA",
+   "streams": 3
+  },
+  {
+   "id": "DW.de",
+   "name": "DW",
+   "streams": 15
+  },
+  {
+   "id": "WDRFernsehen.de",
+   "name": "WDR Fernsehen",
+   "streams": 13
+  },
+  {
+   "id": "NDRFernsehen.de",
+   "name": "NDR Fernsehen",
+   "streams": 4
+  },
+  {
+   "id": "BRFernsehen.de",
+   "name": "BR Fernsehen",
+   "streams": 2
+  },
+  {
+   "id": "MDRFernsehen.de",
+   "name": "MDR Fernsehen",
+   "streams": 4
+  },
+  {
+   "id": "SWRFernsehenBadenWurttemberg.de",
+   "name": "SWR Fernsehen Baden-Wurttemberg",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "hrfernsehen.de",
+   "name": "hr-fernsehen",
+   "streams": 2
+  },
+  {
+   "id": "rbbFernsehen.de",
+   "name": "rbb Fernsehen",
+   "streams": 3
+  },
+  {
+   "id": "RadioBremenFernsehen.de",
+   "name": "Radio Bremen Fernsehen",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "WELT.de",
+   "name": "WELT",
+   "streams": 1
+  },
+  {
+   "id": "ntv.de",
+   "name": "n-tv",
+   "streams": 1
+  },
+  {
+   "id": "RTL.de",
+   "name": "RTL",
+   "streams": 1
+  },
+  {
+   "id": "ProSieben.de",
+   "name": "ProSieben",
+   "streams": 2
+  },
+  {
+   "id": "VOX.de",
+   "name": "VOX",
+   "streams": 1
+  }
+ ],
+ "uz": [
+  {
+   "id": "Ozbekiston.uz",
+   "name": "O'zbekiston",
+   "streams": 1
+  },
+  {
+   "id": "Ozbekiston24.uz",
+   "name": "O'zbekiston 24",
+   "streams": 1
+  },
+  {
+   "id": "Yoshlar.uz",
+   "name": "Yoshlar",
+   "streams": 1
+  },
+  {
+   "id": "Toshkent.uz",
+   "name": "Toshkent",
+   "streams": 1
+  },
+  {
+   "id": "Sport.uz",
+   "name": "Sport",
+   "streams": 1
+  },
+  {
+   "id": "Madaniyatvamarifat.uz",
+   "name": "Madaniyat va ma'rifat",
+   "streams": 1
+  },
+  {
+   "id": "Bolajon.uz",
+   "name": "Bolajon",
+   "streams": 1
+  },
+  {
+   "id": "Dunyoboylab.uz",
+   "name": "Dunyo bo'ylab",
+   "streams": 1
+  },
+  {
+   "id": "Kinoteatr.uz",
+   "name": "Kinoteatr",
+   "streams": 1
+  },
+  {
+   "id": "Navo.uz",
+   "name": "Navo",
+   "streams": 1
+  },
+  {
+   "id": "Mahalla.uz",
+   "name": "Mahalla",
+   "streams": 1
+  },
+  {
+   "id": "UzReportTV.uz",
+   "name": "UzReport TV",
+   "streams": 1
+  },
+  {
+   "id": "MY5.uz",
+   "name": "MY5",
+   "streams": 1
+  },
+  {
+   "id": "SevimliTV.uz",
+   "name": "Sevimli TV",
+   "streams": 1
+  },
+  {
+   "id": "ZorTV.uz",
+   "name": "Zo'r TV",
+   "streams": 1
+  },
+  {
+   "id": "Milliy.uz",
+   "name": "Milliy",
+   "streams": 2
+  },
+  {
+   "id": "BIZTV.uz",
+   "name": "BIZ TV",
+   "streams": 2
+  },
+  {
+   "id": "FutbolTV.uz",
+   "name": "Futbol TV",
+   "streams": 1
+  },
+  {
+   "id": "OzbekistonTarixi.uz",
+   "name": "O'zbekiston Tarixi",
+   "streams": 1
+  },
+  {
+   "id": "Qaraqalpaqstan.uz",
+   "name": "Qaraqalpaqstan",
+   "streams": 1
+  }
+ ],
+ "tm": [
+  {
+   "id": "AltynAsyr.tm",
+   "name": "Altyn Asyr",
+   "streams": 2
+  },
+  {
+   "id": "Turkmenistan.tm",
+   "name": "Turkmenistan",
+   "streams": 2
+  },
+  {
+   "id": "Yaslyk.tm",
+   "name": "Yaslyk",
+   "streams": 2
+  },
+  {
+   "id": "Miras.tm",
+   "name": "Miras",
+   "streams": 2
+  },
+  {
+   "id": "TurkmenOwazy.tm",
+   "name": "Turkmen Owazy",
+   "streams": 2
+  },
+  {
+   "id": "TurkmenistanSport.tm",
+   "name": "Turkmenistan Sport",
+   "streams": 2
+  },
+  {
+   "id": "Asgabat.tm",
+   "name": "Asgabat",
+   "streams": 2
+  },
+  {
+   "id": "ArkadagTV.tm",
+   "name": "Arkadag TV",
+   "streams": 2
+  }
+ ],
+ "am": [
+  {
+   "id": "Armenia1.am",
+   "name": "Armenia 1",
+   "streams": 4
+  },
+  {
+   "id": "Armenia2.am",
+   "name": "Armenia 2",
+   "streams": 1
+  },
+  {
+   "id": "ShantTV.am",
+   "name": "Shant TV",
+   "streams": 1
+  },
+  {
+   "id": "ATV.am",
+   "name": "ATV",
+   "streams": 1
+  },
+  {
+   "id": "ArmeniaTVSatellite.am",
+   "name": "Armenia TV Satellite",
+   "streams": 1
+  },
+  {
+   "id": "FirstChannelNews.am",
+   "name": "First Channel News",
+   "streams": 2
+  },
+  {
+   "id": "KentronTV.am",
+   "name": "Kentron TV",
+   "streams": 1
+  },
+  {
+   "id": "ArmeniaPremium.am",
+   "name": "Armenia Premium",
+   "streams": 1
+  }
+ ],
+ "sy": [
+  {
+   "id": "SyriaTV.sy",
+   "name": "Syria TV",
+   "streams": 4
+  },
+  {
+   "id": "AlSouriyaTV.sy",
+   "name": "Al-Souriya TV",
+   "streams": 1
+  },
+  {
+   "id": "AlikhbariaSyria.sy",
+   "name": "Alikhbaria Syria",
+   "streams": 1
+  },
+  {
+   "id": "HalabTodayTV.sy",
+   "name": "Halab Today TV",
+   "streams": 2
+  },
+  {
+   "id": "Althania.sy",
+   "name": "Althania",
+   "streams": 2
+  },
+  {
+   "id": "AlalamNewsChannelSyria.sy",
+   "name": "Alalam News Channel Syria",
+   "streams": 1
+  },
+  {
+   "id": "RojavaTV.sy",
+   "name": "Rojava TV",
+   "streams": 1
+  },
+  {
+   "id": "RonahiTV.sy",
+   "name": "Ronahi TV",
+   "streams": 1
+  },
+  {
+   "id": "WelatTV.sy",
+   "name": "Welat TV",
+   "streams": 1
+  },
+  {
+   "id": "Prime.sy",
+   "name": "Prime",
+   "streams": 1
+  },
+  {
+   "id": "DamascusRadio.sy",
+   "name": "Damascus Radio",
+   "streams": 1
+  }
+ ],
+ "us": [
+  {
+   "id": "ABCNewsLive.us",
+   "name": "ABC News Live",
+   "streams": 3
+  },
+  {
+   "id": "CBSNews247.us",
+   "name": "CBS News 24/7",
+   "streams": 12
+  },
+  {
+   "id": "NBCNewsNOW.us",
+   "name": "NBC News NOW",
+   "streams": 7
+  },
+  {
+   "id": "FoxNewsChannel.us",
+   "name": "Fox News Channel",
+   "streams": 2
+  },
+  {
+   "id": "BloombergTV.us",
+   "name": "Bloomberg TV",
+   "streams": 23
+  },
+  {
+   "id": "CNBC.us",
+   "name": "CNBC",
+   "streams": 2
+  },
+  {
+   "id": "LiveNOWfromFOX.us",
+   "name": "LiveNOW from FOX",
+   "streams": 4
+  },
+  {
+   "id": "FoxWeather.us",
+   "name": "Fox Weather",
+   "streams": 4
+  },
+  {
+   "id": "ReutersTV.us",
+   "name": "Reuters TV",
+   "streams": 4
+  },
+  {
+   "id": "ScrippsNews.us",
+   "name": "Scripps News",
+   "streams": 4
+  },
+  {
+   "id": "NewsmaxTV.us",
+   "name": "Newsmax TV",
+   "streams": 4
+  },
+  {
+   "id": "CourtTV.us",
+   "name": "Court TV",
+   "streams": 5
+  },
+  {
+   "id": "PBS.us",
+   "name": "PBS",
+   "streams": 12
+  },
+  {
+   "id": "PBSKids.us",
+   "name": "PBS Kids",
+   "streams": 1
+  },
+  {
+   "id": "Telemundo.us",
+   "name": "Telemundo",
+   "streams": 8
+  },
+  {
+   "id": "Univision.us",
+   "name": "Univision",
+   "streams": 9
+  },
+  {
+   "id": "CheddarNews.us",
+   "name": "Cheddar News",
+   "streams": 2
+  },
+  {
+   "id": "ABC.us",
+   "name": "ABC",
+   "streams": 33
+  },
+  {
+   "id": "CBS.us",
+   "name": "CBS",
+   "streams": 22
+  },
+  {
+   "id": "NBC.us",
+   "name": "NBC",
+   "streams": 34
+  },
+  {
+   "id": "WeatherNation.us",
+   "name": "WeatherNation",
+   "streams": 2
+  }
+ ],
+ "es": [
+  {
+   "id": "La1.es",
+   "name": "La 1",
+   "streams": 4
+  },
+  {
+   "id": "La2.es",
+   "name": "La 2",
+   "streams": 1
+  },
+  {
+   "id": "24Horas.es",
+   "name": "24 Horas",
+   "streams": 1
+  },
+  {
+   "id": "Teledeporte.es",
+   "name": "Teledeporte",
+   "streams": 2
+  },
+  {
+   "id": "Clan.es",
+   "name": "Clan",
+   "streams": 3
+  },
+  {
+   "id": "TVEInternacionalEurope.es",
+   "name": "TVE Internacional Europe",
+   "streams": 2,
+   "geo_blocked": true
+  },
+  {
+   "id": "Antena3Internacional.es",
+   "name": "Antena 3 Internacional",
+   "streams": 2
+  },
+  {
+   "id": "Telemadrid.es",
+   "name": "Telemadrid",
+   "streams": 1
+  },
+  {
+   "id": "TV3.es",
+   "name": "TV3",
+   "streams": 2,
+   "geo_blocked": true
+  },
+  {
+   "id": "3CatInfo.es",
+   "name": "3CatInfo",
+   "streams": 1
+  },
+  {
+   "id": "CanalSurAndalucia.es",
+   "name": "Canal Sur Andalucia",
+   "streams": 2
+  },
+  {
+   "id": "ETB1.es",
+   "name": "ETB 1",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "ETB2.es",
+   "name": "ETB 2",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "APunt.es",
+   "name": "A Punt",
+   "streams": 1
+  },
+  {
+   "id": "TelevisionCanaria.es",
+   "name": "Television Canaria",
+   "streams": 2
+  },
+  {
+   "id": "CMMTV.es",
+   "name": "CMM TV",
+   "streams": 1
+  },
+  {
+   "id": "AragonTVInternacional.es",
+   "name": "Aragon TV Internacional",
+   "streams": 1
+  },
+  {
+   "id": "RealMadridTV.es",
+   "name": "Real Madrid TV",
+   "streams": 2
+  },
+  {
+   "id": "Trece.es",
+   "name": "Trece",
+   "streams": 1
+  },
+  {
+   "id": "CanalExtremadura.es",
+   "name": "Canal Extremadura",
+   "streams": 1
+  },
+  {
+   "id": "GaliciaTVEuropa.es",
+   "name": "Galicia TV Europa",
+   "streams": 1
+  }
+ ],
+ "sa": [
+  {
+   "id": "AlEkhbariya.sa",
+   "name": "Al Ekhbariya",
+   "streams": 2
+  },
+  {
+   "id": "AlSaudiya.sa",
+   "name": "Al Saudiya",
+   "streams": 3
+  },
+  {
+   "id": "AlHadath.sa",
+   "name": "Al Hadath",
+   "streams": 3
+  },
+  {
+   "id": "AsharqNews.sa",
+   "name": "Asharq News",
+   "streams": 4
+  },
+  {
+   "id": "AlArabiyaEnglish.sa",
+   "name": "Al Arabiya English",
+   "streams": 2
+  },
+  {
+   "id": "SBC.sa",
+   "name": "SBC",
+   "streams": 1
+  },
+  {
+   "id": "MBCLoud.sa",
+   "name": "MBC Loud",
+   "streams": 1
+  },
+  {
+   "id": "RotanaCinemaKSA.sa",
+   "name": "Rotana Cinema KSA",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "RotanaKhalijia.sa",
+   "name": "Rotana Khalijia",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "RotanaClassic.sa",
+   "name": "Rotana Classic",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "RotanaDrama.sa",
+   "name": "Rotana Drama",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "RotanaComedy.sa",
+   "name": "Rotana Comedy",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "AlQuranAlKareemTV.sa",
+   "name": "Al Quran Al Kareem TV",
+   "streams": 3
+  },
+  {
+   "id": "AlSunnahAlNabawiyahTV.sa",
+   "name": "Al Sunnah Al Nabawiyah TV",
+   "streams": 3
+  },
+  {
+   "id": "Maraya.sa",
+   "name": "Maraya",
+   "streams": 1
+  },
+  {
+   "id": "AsharqDocumentary.sa",
+   "name": "Asharq Documentary",
+   "streams": 1
+  },
+  {
+   "id": "LBC.sa",
+   "name": "LBC",
+   "streams": 2
+  },
+  {
+   "id": "Aflam.sa",
+   "name": "Aflam",
+   "streams": 1
+  }
+ ],
+ "ca": [
+  {
+   "id": "CBCNewsNetwork.ca",
+   "name": "CBC News Network",
+   "streams": 4
+  },
+  {
+   "id": "CBCTelevision.ca",
+   "name": "CBC Television",
+   "streams": 14,
+   "geo_blocked": true
+  },
+  {
+   "id": "CTV.ca",
+   "name": "CTV",
+   "streams": 1
+  },
+  {
+   "id": "CP24.ca",
+   "name": "CP24",
+   "streams": 2
+  },
+  {
+   "id": "CityNewsToronto.ca",
+   "name": "CityNews Toronto",
+   "streams": 1
+  },
+  {
+   "id": "BNNBloomberg.ca",
+   "name": "BNN Bloomberg",
+   "streams": 1
+  },
+  {
+   "id": "IciRDI.ca",
+   "name": "Ici RDI",
+   "streams": 1
+  },
+  {
+   "id": "IciRadioCanadaTele.ca",
+   "name": "Ici Radio-Canada Tele",
+   "streams": 14
+  },
+  {
+   "id": "TVA.ca",
+   "name": "TVA",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "LCN.ca",
+   "name": "LCN",
+   "streams": 1,
+   "geo_blocked": true
+  },
+  {
+   "id": "CPACEnglish.ca",
+   "name": "CPAC English",
+   "streams": 1
+  },
+  {
+   "id": "TVOKids.ca",
+   "name": "TVOKids",
+   "streams": 2
+  },
+  {
+   "id": "TheWeatherNetwork.ca",
+   "name": "The Weather Network",
+   "streams": 1
+  },
+  {
+   "id": "CHCHDT.ca",
+   "name": "CHCH-DT",
+   "streams": 1
+  },
+  {
+   "id": "TV5Unis.ca",
+   "name": "TV5 Unis",
+   "streams": 1
+  },
+  {
+   "id": "TSC.ca",
+   "name": "TSC",
+   "streams": 2
+  },
+  {
+   "id": "FightNetwork.ca",
+   "name": "Fight Network",
+   "streams": 3
+  }
+ ],
+ "pk": [
+  {
+   "id": "PTVNews.pk",
+   "name": "PTV News",
+   "streams": 1
+  },
+  {
+   "id": "PTVSports.pk",
+   "name": "PTV Sports",
+   "streams": 2
+  },
+  {
+   "id": "ARYNews.pk",
+   "name": "ARY News",
+   "streams": 1
+  },
+  {
+   "id": "DunyaNews.pk",
+   "name": "Dunya News",
+   "streams": 2
+  },
+  {
+   "id": "SamaaTV.pk",
+   "name": "Samaa TV",
+   "streams": 2
+  },
+  {
+   "id": "HumNews.pk",
+   "name": "Hum News",
+   "streams": 1
+  },
+  {
+   "id": "92NewsHD.pk",
+   "name": "92 News HD",
+   "streams": 1
+  },
+  {
+   "id": "24NewsHD.pk",
+   "name": "24 News HD",
+   "streams": 1
+  },
+  {
+   "id": "AajNews.pk",
+   "name": "Aaj News",
+   "streams": 1
+  },
+  {
+   "id": "NewsOne.pk",
+   "name": "News One",
+   "streams": 2
+  },
+  {
+   "id": "BolEntertainment.pk",
+   "name": "Bol Entertainment",
+   "streams": 1
+  },
+  {
+   "id": "HumTV.pk",
+   "name": "Hum TV",
+   "streams": 2
+  },
+  {
+   "id": "APlusTV.pk",
+   "name": "A-Plus TV",
+   "streams": 3
+  },
+  {
+   "id": "KTNNews.pk",
+   "name": "KTN News",
+   "streams": 2
+  },
+  {
+   "id": "SuchTV.pk",
+   "name": "Such TV",
+   "streams": 1
+  },
+  {
+   "id": "PublicNews.pk",
+   "name": "Public News",
+   "streams": 1
+  },
+  {
+   "id": "City41.pk",
+   "name": "City 41",
+   "streams": 1
+  }
+ ],
+ "cn": [
+  {
+   "id": "CCTV1.cn",
+   "name": "CCTV-1",
+   "streams": 4
+  },
+  {
+   "id": "CCTV2.cn",
+   "name": "CCTV-2",
+   "streams": 1
+  },
+  {
+   "id": "CCTV3.cn",
+   "name": "CCTV-3",
+   "streams": 1
+  },
+  {
+   "id": "CCTV4Asia.cn",
+   "name": "CCTV-4 Asia",
+   "streams": 1
+  },
+  {
+   "id": "CCTV5Plus.cn",
+   "name": "CCTV-5+",
+   "streams": 1
+  },
+  {
+   "id": "CCTV6.cn",
+   "name": "CCTV-6",
+   "streams": 3
+  },
+  {
+   "id": "CCTV7.cn",
+   "name": "CCTV-7",
+   "streams": 1
+  },
+  {
+   "id": "CCTV8.cn",
+   "name": "CCTV-8",
+   "streams": 1
+  },
+  {
+   "id": "CCTV9.cn",
+   "name": "CCTV-9",
+   "streams": 1
+  },
+  {
+   "id": "CCTV10.cn",
+   "name": "CCTV-10",
+   "streams": 2
+  },
+  {
+   "id": "CCTV13.cn",
+   "name": "CCTV-13",
+   "streams": 2
+  },
+  {
+   "id": "CCTV14.cn",
+   "name": "CCTV-14",
+   "streams": 1
+  },
+  {
+   "id": "CCTV15.cn",
+   "name": "CCTV-15",
+   "streams": 2
+  },
+  {
+   "id": "CGTN.cn",
+   "name": "CGTN",
+   "streams": 10
+  },
+  {
+   "id": "CGTNDocumentary.cn",
+   "name": "CGTN Documentary",
+   "streams": 7
+  },
+  {
+   "id": "HunanTV.cn",
+   "name": "Hunan TV",
+   "streams": 1
+  },
+  {
+   "id": "ZhejiangSatelliteTV.cn",
+   "name": "Zhejiang Satellite TV",
+   "streams": 11
+  },
+  {
+   "id": "JiangsuSatelliteTV.cn",
+   "name": "Jiangsu Satellite TV",
+   "streams": 11
+  },
+  {
+   "id": "DragonTVInternational.cn",
+   "name": "Dragon TV International",
+   "streams": 2
+  },
+  {
+   "id": "BeijingSatelliteTV.cn",
+   "name": "Beijing Satellite TV",
+   "streams": 3
+  },
+  {
+   "id": "ShenzhenSatelliteTV.cn",
+   "name": "Shenzhen Satellite TV",
+   "streams": 12
+  },
+  {
+   "id": "GuangdongSatelliteTV.cn",
+   "name": "Guangdong Satellite TV",
+   "streams": 1
+  }
+ ],
+ "ru": [
+  {
+   "id": "ChannelOne.ru",
+   "name": "Channel One",
+   "streams": 10
+  },
+  {
+   "id": "Russia1.ru",
+   "name": "Russia-1",
+   "streams": 148
+  },
+  {
+   "id": "Russia24.ru",
+   "name": "Russia-24",
+   "streams": 97
+  },
+  {
+   "id": "NTV.ru",
+   "name": "NTV",
+   "streams": 17
+  },
+  {
+   "id": "RENTV.ru",
+   "name": "REN TV",
+   "streams": 7
+  },
+  {
+   "id": "STS.ru",
+   "name": "STS",
+   "streams": 12
+  },
+  {
+   "id": "TNT.ru",
+   "name": "TNT",
+   "streams": 10
+  },
+  {
+   "id": "Zvezda.ru",
+   "name": "Zvezda",
+   "streams": 11
+  },
+  {
+   "id": "MatchStrana.ru",
+   "name": "Match! Strana",
+   "streams": 4
+  },
+  {
+   "id": "Mir.ru",
+   "name": "Mir",
+   "streams": 14
+  },
+  {
+   "id": "Mir24.ru",
+   "name": "Mir 24",
+   "streams": 5
+  },
+  {
+   "id": "OTR.ru",
+   "name": "OTR",
+   "streams": 4
+  },
+  {
+   "id": "RussiaK.ru",
+   "name": "Russia-K",
+   "streams": 13
+  },
+  {
+   "id": "TVCentr.ru",
+   "name": "TV Centr",
+   "streams": 9
+  },
+  {
+   "id": "Friday.ru",
+   "name": "Friday!",
+   "streams": 7
+  },
+  {
+   "id": "Che.ru",
+   "name": "Che!",
+   "streams": 5
+  },
+  {
+   "id": "TV3.ru",
+   "name": "TV-3",
+   "streams": 7
+  },
+  {
+   "id": "Domashniy.ru",
+   "name": "Domashniy",
+   "streams": 5
+  },
+  {
+   "id": "MuzTV.ru",
+   "name": "Muz-TV",
+   "streams": 9
+  },
+  {
+   "id": "RT.ru",
+   "name": "RT",
+   "streams": 8
+  },
+  {
+   "id": "Spas.ru",
+   "name": "Spas",
+   "streams": 4
+  },
+  {
+   "id": "Moskva24.ru",
+   "name": "Moskva 24",
+   "streams": 5
+  },
+  {
+   "id": "360.ru",
+   "name": "360°",
+   "streams": 3
+  }
+ ],
+ "iran-foreign-all": [
+  {
+   "id": "4Kurd.fr",
+   "name": "4Kurd",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "4Music.fr",
+   "name": "4 Music",
+   "streams": 2,
+   "country": "FR"
+  },
+  {
+   "id": "4UTV.tr",
+   "name": "4U TV",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "AlMahdiTV.us",
+   "name": "Al-Mahdi TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "AvangTV.us",
+   "name": "Avang TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "BBCPersian.uk",
+   "name": "BBC Persian",
+   "streams": 8,
+   "country": "UK"
+  },
+  {
+   "id": "ChannelOne.us",
+   "name": "Channel One",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "DidgahTV.us",
+   "name": "Didgah TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "ErfanHalghehTV.ca",
+   "name": "Erfan Halgheh TV",
+   "streams": 1,
+   "country": "CA"
+  },
+  {
+   "id": "GanjeHozourTV.us",
+   "name": "Ganj e Hozour TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "GEM24B.tr",
+   "name": "GEM 24B",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMBollywood.tr",
+   "name": "GEM Bollywood",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMClassic.tr",
+   "name": "GEM Classic",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMComedy.tr",
+   "name": "GEM Comedy",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMDrama.tr",
+   "name": "GEM Drama",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMDramaPlus.tr",
+   "name": "GEM Drama +",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMEntertainment.tr",
+   "name": "GEM Entertainment",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMFilm.tr",
+   "name": "GEM Film",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMFit.tr",
+   "name": "GEM Fit",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMFood.tr",
+   "name": "GEM Food",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMJunior.tr",
+   "name": "GEM Junior",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMKids.tr",
+   "name": "GEM Kids",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMLife.tr",
+   "name": "GEM Life",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMMifa.tr",
+   "name": "GEM Mifa",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMMifaPlus.tr",
+   "name": "GEM Mifa +",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMNature.tr",
+   "name": "GEM Nature",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMOnyx.tr",
+   "name": "GEM Onyx",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMPixel.tr",
+   "name": "GEM Pixel",
+   "streams": 2,
+   "country": "TR"
+  },
+  {
+   "id": "GEMRiver.tr",
+   "name": "GEM River",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMRiverPlus.tr",
+   "name": "GEM River +",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMRubix.tr",
+   "name": "GEM Rubix",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMRubixPlus.tr",
+   "name": "GEM Rubix +",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMSeriesPlus.tr",
+   "name": "GEM Series +",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMSport.tr",
+   "name": "GEM Sport",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMTV.tr",
+   "name": "GEM TV",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GEMTVPlus.tr",
+   "name": "GEM TV +",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "GrandCinema.tr",
+   "name": "Grand Cinema",
+   "streams": 1,
+   "country": "TR"
+  },
+  {
+   "id": "HighVisionTV.us",
+   "name": "High Vision TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "ICCplus.us",
+   "name": "ICC plus",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "ICnet1.ca",
+   "name": "ICnet 1",
+   "streams": 1,
+   "country": "CA"
+  },
+  {
+   "id": "ICnet2.ca",
+   "name": "ICnet 2",
+   "streams": 1,
+   "country": "CA"
+  },
+  {
+   "id": "icnet3.ca",
+   "name": "icnet 3",
+   "streams": 1,
+   "country": "CA"
+  },
+  {
+   "id": "ImamHusseinTV1.iq",
+   "name": "Imam Hussein TV 1",
+   "streams": 2,
+   "country": "IQ"
+  },
+  {
+   "id": "ImamHusseinTV6.iq",
+   "name": "Imam Hussein TV 6",
+   "streams": 1,
+   "country": "IQ"
+  },
+  {
+   "id": "IraneFardaTV.uk",
+   "name": "IraneFarda TV",
+   "streams": 1,
+   "country": "UK"
+  },
+  {
+   "id": "IranInternational.uk",
+   "name": "Iran International",
+   "streams": 5,
+   "country": "UK"
+  },
+  {
+   "id": "IranNama.fr",
+   "name": "Iran Nama",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "IranNationalRevolutionTV.us",
+   "name": "Iran National Revolution TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "KalemehTV.uk",
+   "name": "Kalemeh TV",
+   "streams": 2,
+   "country": "UK"
+  },
+  {
+   "id": "KanalJadid.uk",
+   "name": "Kanal Jadid",
+   "streams": 1,
+   "country": "UK"
+  },
+  {
+   "id": "LoveWorldPersia.ng",
+   "name": "LoveWorld Persia",
+   "streams": 1,
+   "country": "NG"
+  },
+  {
+   "id": "MaahTV.my",
+   "name": "Maah TV",
+   "streams": 1,
+   "country": "MY"
+  },
+  {
+   "id": "Manoto.uk",
+   "name": "Manoto",
+   "streams": 1,
+   "country": "UK"
+  },
+  {
+   "id": "MarjaeyatTVPersian.iq",
+   "name": "Marjaeyat TV Persian",
+   "streams": 1,
+   "country": "IQ"
+  },
+  {
+   "id": "MBCPersia.ae",
+   "name": "MBC Persia",
+   "streams": 2,
+   "country": "AE"
+  },
+  {
+   "id": "MohabatTV.us",
+   "name": "Mohabat TV",
+   "streams": 2,
+   "country": "US"
+  },
+  {
+   "id": "MTC.us",
+   "name": "MTC",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "NationalIranianCongressTV.us",
+   "name": "National Iranian Congress TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "NavahangTV.fi",
+   "name": "Navahang TV",
+   "streams": 2,
+   "country": "FI"
+  },
+  {
+   "id": "NourTV.ae",
+   "name": "Nour TV",
+   "streams": 1,
+   "country": "AE"
+  },
+  {
+   "id": "OmideIranTV.us",
+   "name": "Omid e Iran TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "ParsTV.us",
+   "name": "Pars TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "PayameArameshTV.us",
+   "name": "Payame Aramesh TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "PayamJavanTV.us",
+   "name": "Payam Javan TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "PBCTapeshTV.us",
+   "name": "PBC Tapesh TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "PersianaCinema.fr",
+   "name": "Persiana Cinema",
+   "streams": 2,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaComedy.fr",
+   "name": "Persiana Comedy",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaDocs.fr",
+   "name": "Persiana Docs",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaFamily.fr",
+   "name": "Persiana Family",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaFight.fr",
+   "name": "Persiana Fight",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaFolk.fr",
+   "name": "Persiana Folk",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaIranian.fr",
+   "name": "Persiana Iranian",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaJunior.fr",
+   "name": "Persiana Junior",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaKorea.fr",
+   "name": "Persiana Korea",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaLatino.fr",
+   "name": "Persiana Latino",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaMedical.fr",
+   "name": "Persiana Medical",
+   "streams": 2,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaNostalgia.fr",
+   "name": "Persiana Nostalgia",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaPlus.fr",
+   "name": "Persiana Plus",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaReality.fr",
+   "name": "Persiana Reality",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaSeries.fr",
+   "name": "Persiana Series",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaTeen.fr",
+   "name": "Persiana Teen",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaTravel.fr",
+   "name": "Persiana Travel",
+   "streams": 2,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaTurkiye.fr",
+   "name": "Persiana Turkiye",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PersianaVibe.fr",
+   "name": "Persiana Vibe",
+   "streams": 1,
+   "country": "FR"
+  },
+  {
+   "id": "PMC.ae",
+   "name": "PMC",
+   "streams": 1,
+   "country": "AE"
+  },
+  {
+   "id": "PMCRoyale.ae",
+   "name": "PMC Royale",
+   "streams": 1,
+   "country": "AE"
+  },
+  {
+   "id": "RJTV.us",
+   "name": "RJTV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "Sat7Pars.cy",
+   "name": "Sat 7 Pars",
+   "streams": 1,
+   "country": "CY"
+  },
+  {
+   "id": "SetarehTV.uk",
+   "name": "Setareh TV",
+   "streams": 1,
+   "country": "UK"
+  },
+  {
+   "id": "Shabakeh7.us",
+   "name": "Shabakeh 7",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "SimayeAzadi.uk",
+   "name": "Simaye Azadi",
+   "streams": 1,
+   "country": "UK"
+  },
+  {
+   "id": "Tapesh2.us",
+   "name": "Tapesh 2",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "TinTV.us",
+   "name": "Tin TV",
+   "streams": 2,
+   "country": "US"
+  },
+  {
+   "id": "TMTV.us",
+   "name": "TM TV",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "VelayatTVNetwork.us",
+   "name": "Velayat TV Network",
+   "streams": 1,
+   "country": "US"
+  },
+  {
+   "id": "VoATVPersian.us",
+   "name": "VoA TV Persian",
+   "streams": 2,
+   "country": "US"
+  }
+ ],
+ "iran-all": [
+  {
+   "id": "247BoxTV.ir",
+   "name": "247 Box TV",
+   "streams": 1
+  },
+  {
+   "id": "AbadanTV.ir",
+   "name": "Abadan TV",
+   "streams": 1
+  },
+  {
+   "id": "AflakTV.ir",
+   "name": "Aflak TV",
+   "streams": 1
+  },
+  {
+   "id": "AFNTV.ir",
+   "name": "AFN TV",
+   "streams": 1
+  },
+  {
+   "id": "AfraFilm.ir",
+   "name": "Afra Film",
+   "streams": 1
+  },
+  {
+   "id": "AfraSeries.ir",
+   "name": "Afra Series",
+   "streams": 1
+  },
+  {
+   "id": "AftabTV.ir",
+   "name": "Aftab TV",
+   "streams": 1
+  },
+  {
+   "id": "AlAlam.ir",
+   "name": "Al Alam",
+   "streams": 1
+  },
+  {
+   "id": "AlborzTV.ir",
+   "name": "Alborz TV",
+   "streams": 1
+  },
+  {
+   "id": "AlWilayah.ir",
+   "name": "Al Wilayah",
+   "streams": 1
+  },
+  {
+   "id": "AmouzeshTV.ir",
+   "name": "Amouzesh TV",
+   "streams": 1
+  },
+  {
+   "id": "AraTV.ir",
+   "name": "Ara TV",
+   "streams": 1
+  },
+  {
+   "id": "AraxTV.ir",
+   "name": "Arax TV",
+   "streams": 1
+  },
+  {
+   "id": "ArkoTV.ir",
+   "name": "Arko TV",
+   "streams": 1
+  },
+  {
+   "id": "ArvanTV.ir",
+   "name": "Arvan TV",
+   "streams": 2
+  },
+  {
+   "id": "AsilTV.ir",
+   "name": "Asil TV",
+   "streams": 1
+  },
+  {
+   "id": "AssiratTV.ir",
+   "name": "Assirat TV",
+   "streams": 1
+  },
+  {
+   "id": "AtrakTV.ir",
+   "name": "Atrak TV",
+   "streams": 1
+  },
+  {
+   "id": "AtrinaTV.ir",
+   "name": "Atrina TV",
+   "streams": 1
+  },
+  {
+   "id": "AVAFamily.ir",
+   "name": "AVA Family",
+   "streams": 1
+  },
+  {
+   "id": "AVASeries.ir",
+   "name": "AVA Series",
+   "streams": 1
+  },
+  {
+   "id": "BaranTV.ir",
+   "name": "Baran TV",
+   "streams": 1
+  },
+  {
+   "id": "BoushehrTV.ir",
+   "name": "Boushehr TV",
+   "streams": 1
+  },
+  {
+   "id": "BravoFarsiTV.ir",
+   "name": "Bravo Farsi TV",
+   "streams": 1
+  },
+  {
+   "id": "CafeFilm.ir",
+   "name": "Cafe Film",
+   "streams": 1
+  },
+  {
+   "id": "CafeTradeTV.ir",
+   "name": "Cafe Trade TV",
+   "streams": 1
+  },
+  {
+   "id": "ClassicTV.ir",
+   "name": "Classic TV",
+   "streams": 1
+  },
+  {
+   "id": "DatisTV.ir",
+   "name": "Datis TV",
+   "streams": 1
+  },
+  {
+   "id": "DejTV.ir",
+   "name": "Dej TV",
+   "streams": 1
+  },
+  {
+   "id": "DenaTV.ir",
+   "name": "Dena TV",
+   "streams": 1
+  },
+  {
+   "id": "EkranMovies.ir",
+   "name": "Ekran Movies",
+   "streams": 1
+  },
+  {
+   "id": "Energy.ir",
+   "name": "Energy",
+   "streams": 1
+  },
+  {
+   "id": "EPlanetTV.ir",
+   "name": "EPlanet TV",
+   "streams": 1
+  },
+  {
+   "id": "EshraghNetwork.ir",
+   "name": "Eshragh Network",
+   "streams": 1
+  },
+  {
+   "id": "FarsTV.ir",
+   "name": "Fars TV",
+   "streams": 1
+  },
+  {
+   "id": "FX1.ir",
+   "name": "FX 1",
+   "streams": 1
+  },
+  {
+   "id": "FX2.ir",
+   "name": "FX 2",
+   "streams": 1
+  },
+  {
+   "id": "GoldStar.ir",
+   "name": "Gold Star",
+   "streams": 1
+  },
+  {
+   "id": "GolkhaneTv.ir",
+   "name": "Golkhane Tv",
+   "streams": 1
+  },
+  {
+   "id": "HabibTV.ir",
+   "name": "Habib TV",
+   "streams": 1
+  },
+  {
+   "id": "HamedanTV.ir",
+   "name": "Hamedan TV",
+   "streams": 1
+  },
+  {
+   "id": "HamoonTV.ir",
+   "name": "Hamoon TV",
+   "streams": 1
+  },
+  {
+   "id": "HispanTV.ir",
+   "name": "Hispan TV",
+   "streams": 1
+  },
+  {
+   "id": "HodHodFarsiTV.ir",
+   "name": "HodHod Farsi TV",
+   "streams": 1
+  },
+  {
+   "id": "HomePlus.ir",
+   "name": "HomePlus",
+   "streams": 1
+  },
+  {
+   "id": "iFilm2.ir",
+   "name": "iFilm 2",
+   "streams": 1
+  },
+  {
+   "id": "iFilmArabic.ir",
+   "name": "iFilm Arabic",
+   "streams": 1
+  },
+  {
+   "id": "iFilmEnglish.ir",
+   "name": "iFilm English",
+   "streams": 1
+  },
+  {
+   "id": "iFilmPersian.ir",
+   "name": "iFilm Persian",
+   "streams": 2
+  },
+  {
+   "id": "IlamTV.ir",
+   "name": "Ilam TV",
+   "streams": 1
+  },
+  {
+   "id": "IranJewishTV.ir",
+   "name": "Iran Jewish TV",
+   "streams": 1
+  },
+  {
+   "id": "IranPress.ir",
+   "name": "Iran Press",
+   "streams": 1
+  },
+  {
+   "id": "IRIB1.ir",
+   "name": "IRIB 1",
+   "streams": 1
+  },
+  {
+   "id": "IRIB2.ir",
+   "name": "IRIB 2",
+   "streams": 1
+  },
+  {
+   "id": "IRIB3.ir",
+   "name": "IRIB 3",
+   "streams": 1
+  },
+  {
+   "id": "IRIB4.ir",
+   "name": "IRIB 4",
+   "streams": 1
+  },
+  {
+   "id": "IRIBMostanad.ir",
+   "name": "IRIB Mostanad",
+   "streams": 1
+  },
+  {
+   "id": "IRIBOmid.ir",
+   "name": "IRIB Omid",
+   "streams": 1
+  },
+  {
+   "id": "IRIBUHD.ir",
+   "name": "IRIB UHD",
+   "streams": 1
+  },
+  {
+   "id": "IRINN.ir",
+   "name": "IRINN",
+   "streams": 2
+  },
+  {
+   "id": "IRINN2.ir",
+   "name": "IRINN 2",
+   "streams": 1
+  },
+  {
+   "id": "IsfahanTV.ir",
+   "name": "Isfahan TV",
+   "streams": 1
+  },
+  {
+   "id": "JahanbinTV.ir",
+   "name": "Jahanbin TV",
+   "streams": 1
+  },
+  {
+   "id": "KermanTV.ir",
+   "name": "Kerman TV",
+   "streams": 1
+  },
+  {
+   "id": "KhalijeFarsTV.ir",
+   "name": "Khalij-e Fars TV",
+   "streams": 1
+  },
+  {
+   "id": "KhalijTV.ir",
+   "name": "Khalij TV",
+   "streams": 1
+  },
+  {
+   "id": "KhavaranTV.ir",
+   "name": "Khavaran TV",
+   "streams": 1
+  },
+  {
+   "id": "KhorasanRazaviTV.ir",
+   "name": "Khorasan Razavi TV",
+   "streams": 1
+  },
+  {
+   "id": "KhozestanTV.ir",
+   "name": "Khozestan TV",
+   "streams": 1
+  },
+  {
+   "id": "KishTV.ir",
+   "name": "Kish TV",
+   "streams": 1
+  },
+  {
+   "id": "KordestanTV.ir",
+   "name": "Kordestan TV",
+   "streams": 1
+  },
+  {
+   "id": "LabbaykTV.ir",
+   "name": "LabbaykTV",
+   "streams": 1
+  },
+  {
+   "id": "MahabadTV.ir",
+   "name": "Mahabad TV",
+   "streams": 1
+  },
+  {
+   "id": "MetaFilmTV.ir",
+   "name": "Meta Film TV",
+   "streams": 1
+  },
+  {
+   "id": "MihanTV.ir",
+   "name": "Mihan TV",
+   "streams": 1
+  },
+  {
+   "id": "MohabatTV.ir",
+   "name": "Mohabat TV",
+   "streams": 2
+  },
+  {
+   "id": "NamayeshTV.ir",
+   "name": "Namayesh TV",
+   "streams": 1
+  },
+  {
+   "id": "Nasim.ir",
+   "name": "Nasim",
+   "streams": 1
+  },
+  {
+   "id": "NewFlix.ir",
+   "name": "NewFlix",
+   "streams": 1
+  },
+  {
+   "id": "NoorTV.ir",
+   "name": "Noor TV",
+   "streams": 1
+  },
+  {
+   "id": "OfoghTV.ir",
+   "name": "Ofogh TV",
+   "streams": 1
+  },
+  {
+   "id": "OXIRTV.ir",
+   "name": "OXIR TV",
+   "streams": 1
+  },
+  {
+   "id": "Palestinetv.ir",
+   "name": "Palestinetv",
+   "streams": 1
+  },
+  {
+   "id": "PayvandTV.ir",
+   "name": "Payvand TV",
+   "streams": 1
+  },
+  {
+   "id": "PooyaTV.ir",
+   "name": "Pooya TV",
+   "streams": 1
+  },
+  {
+   "id": "PooyaTVPlus.ir",
+   "name": "Pooya TV Plus",
+   "streams": 1
+  },
+  {
+   "id": "PressTV.ir",
+   "name": "Press TV",
+   "streams": 2
+  },
+  {
+   "id": "PressTVFrench.ir",
+   "name": "Press TV French",
+   "streams": 1
+  },
+  {
+   "id": "QazvinTV.ir",
+   "name": "Qazvin TV",
+   "streams": 1
+  },
+  {
+   "id": "QuranTV.ir",
+   "name": "Quran TV",
+   "streams": 1
+  },
+  {
+   "id": "RasoulallahTv.ir",
+   "name": "RasoulallahTv",
+   "streams": 1
+  },
+  {
+   "id": "RazaviTV.ir",
+   "name": "Razavi TV",
+   "streams": 1
+  },
+  {
+   "id": "RoyaTV.ir",
+   "name": "Roya TV",
+   "streams": 1
+  },
+  {
+   "id": "SabalanTV.ir",
+   "name": "Sabalan TV",
+   "streams": 1
+  },
+  {
+   "id": "SabzTV.ir",
+   "name": "Sabz TV",
+   "streams": 1
+  },
+  {
+   "id": "SahandTV.ir",
+   "name": "Sahand TV",
+   "streams": 1
+  },
+  {
+   "id": "SalamatTV.ir",
+   "name": "Salamat TV",
+   "streams": 1
+  },
+  {
+   "id": "SarbedaranTV.ir",
+   "name": "Sarbedaran TV",
+   "streams": 1
+  },
+  {
+   "id": "SemnanTV.ir",
+   "name": "Semnan TV",
+   "streams": 1
+  },
+  {
+   "id": "SepehrTV.ir",
+   "name": "Sepehr TV",
+   "streams": 1
+  },
+  {
+   "id": "SL1.ir",
+   "name": "SL 1",
+   "streams": 1
+  },
+  {
+   "id": "SL2.ir",
+   "name": "SL 2",
+   "streams": 1
+  },
+  {
+   "id": "SNNTV.ir",
+   "name": "SNN TV",
+   "streams": 1
+  },
+  {
+   "id": "T2Movies.ir",
+   "name": "T2 Movies",
+   "streams": 1
+  },
+  {
+   "id": "T2TV.ir",
+   "name": "T2 TV",
+   "streams": 1
+  },
+  {
+   "id": "TabarestanTV.ir",
+   "name": "Tabarestan TV",
+   "streams": 1
+  },
+  {
+   "id": "Tamasha.ir",
+   "name": "Tamasha",
+   "streams": 1
+  },
+  {
+   "id": "TBNNejatTV.ir",
+   "name": "TBN Nejat TV",
+   "streams": 1
+  },
+  {
+   "id": "TehranTV.ir",
+   "name": "Tehran TV",
+   "streams": 1
+  },
+  {
+   "id": "Tekyemadahi.ir",
+   "name": "Tekyemadahi",
+   "streams": 1
+  },
+  {
+   "id": "TVANava.ir",
+   "name": "TVA Nava",
+   "streams": 1
+  },
+  {
+   "id": "TVITN.ir",
+   "name": "TV ITN",
+   "streams": 1
+  },
+  {
+   "id": "VarzeshTV.ir",
+   "name": "Varzesh TV",
+   "streams": 1
+  },
+  {
+   "id": "VelayatTV.ir",
+   "name": "Velayat TV",
+   "streams": 1
+  },
+  {
+   "id": "WestAzerbaijanTV.ir",
+   "name": "West Azerbaijan TV",
+   "streams": 1
+  },
+  {
+   "id": "WiseHumanTv.ir",
+   "name": "WiseHumanTv",
+   "streams": 1
+  },
+  {
+   "id": "YazdTV.ir",
+   "name": "Yazd TV",
+   "streams": 1
+  },
+  {
+   "id": "YourTimeTV.ir",
+   "name": "YourTime TV",
+   "streams": 2
+  },
+  {
+   "id": "ZagrosTV.ir",
+   "name": "Zagros TV",
+   "streams": 1
+  },
+  {
+   "id": "ZedTV.ir",
+   "name": "Zed TV",
+   "streams": 1
+  }
+ ],
+ "_meta": {
+  "source": "https://iptv-org.github.io/api/{channels,streams,feeds}.json (fetched via raw.githubusercontent.com/iptv-org/api/gh-pages) on 2026-09-23",
+  "streams_total": 17498,
+  "channels_total": 31375,
+  "notes": "streams = number of entries in streams.json for that channel id. geo_blocked=true when all streams carry the Geo-blocked label. *-all keys are exhaustive lists; other keys are curated top picks."
+ }
+}

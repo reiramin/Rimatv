@@ -7,16 +7,27 @@ public class IptvProviderCreateUpdate
 {
     [StringInputValidation(isRequired: true)]
     public string Name { get; set; }
-    [StringInputValidation(isRequired: true)]
+    [StringInputValidation(isRequired: false)]
     public string BaseUrl { get; set; }
-    [StringInputValidation(isRequired: true)]
+    [StringInputValidation(isRequired: false)]
     public string ChannelsEndpoint { get; set; }
     [StringInputValidation(isRequired: false)]
     public string StreamsEndpoint { get; set; }
     [StringInputValidation(isRequired: false)]
     public string LogosEndpoint { get; set; }
+    [StringInputValidation(isRequired: false)]
+    public string FeedsEndpoint { get; set; }
+    [StringInputValidation(isRequired: false)]
+    public string BlocklistEndpoint { get; set; }
+    [StringInputValidation(isRequired: false)]
+    public string FallbackBaseUrl { get; set; }
+
+    public List<string> AdditionalEndpoints { get; set; } = [];
+    public Dictionary<string, string> Headers { get; set; } = [];
+
     public string ApiKey { get; set; }
     public bool Inactive { get; set; }
     public ProviderKind Kind { get; set; } = ProviderKind.Generic;
-    // public bool UseProxy { get; set; }
+    public int FetchTimeoutSeconds { get; set; }
+    public int Priority { get; set; }
 }

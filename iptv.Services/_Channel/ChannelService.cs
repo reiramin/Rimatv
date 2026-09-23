@@ -302,6 +302,10 @@ public class ChannelService(
     {
         _liteDataCache = default;
     }
+
+    // Passthrough so admin operations in other services (e.g. provider cascade) can invalidate the
+    // shared lite cache without changing its caching mechanics.
+    internal static void InvalidateSharedLiteCache() => InvalidateLiteDataCache();
  
     private async Task<(List<ChannelLiteProjection> Channels, List<StreamLiteProjection> Streams)>
         FetchLiteChannelsAndStreamsAsync(CancellationToken cancellationToken)

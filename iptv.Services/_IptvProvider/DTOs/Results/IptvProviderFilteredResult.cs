@@ -9,6 +9,14 @@ public class IptvProviderFilteredResult
     public string ChannelsEndpoint { get; set; }
     public string StreamsEndpoint { get; set; }
     public string LogosEndpoint { get; set; }
+    public string FeedsEndpoint { get; set; }
+    public string BlocklistEndpoint { get; set; }
+    public string FallbackBaseUrl { get; set; }
+    public List<string> AdditionalEndpoints { get; set; }
+
+    public iptv.Domain.Collections.ProviderKind Kind { get; set; }
+    public int FetchTimeoutSeconds { get; set; }
+    public int Priority { get; set; }
 
     public bool Inactive { get; set; }
 
