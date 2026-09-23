@@ -4,6 +4,7 @@ using iptv.Services._Stream.DTOs.Results;
 using iptv.Services._Stream.DTOs.Updates;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
+using Utilities._Permissions.Constants;
 using Utilities.Api;
 using Utilities.Attributes;
 using Utilities.Filters;
@@ -44,13 +45,13 @@ namespace iptv.Api.Controllers.V1
         #region Admin Actions
 
         [HttpPut("[action]")]
-        // [Authorize(Permissions.EditStream)]
+        [Authorize(Permissions.EditStream)]
         [SwaggerOperation(Summary = "Activate or deactivate a stream.", Tags = ["Stream-Admin"])]
         public async Task<StreamFilteredResult> ActivateAsync(StreamActivateUpdate update)
             => await _streamService.ActivateAsync(update);
 
         [HttpDelete("[action]")]
-        // [Authorize(Permissions.DeleteStream)]
+        [Authorize(Permissions.DeleteStream)]
         [SwaggerOperation(Summary = "Delete a stream.", Tags = ["Stream-Admin"])]
         public async Task<string> DeleteAsync(StreamDeleteUpdate update)
             => await _streamService.DeleteAsync(update);
