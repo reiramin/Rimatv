@@ -19,4 +19,8 @@
     <Folder Include="_Common\DTOs\Updates\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="_ChannelRegistry\Seed\channel_registry.seed.json" />
+  </ItemGroup>
+
 </Project>
