@@ -6,7 +6,11 @@
       "Bash(dotnet build *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(dotnet sln *)",
+      "Bash(dotnet test *)",
+      "Bash(curl -sS -m 15 -o /dev/null -w \"%{http_code}\" https://raw.githubusercontent.com/shayanline/iptv-iran/main/playlists/iran.m3u)",
+      "Bash(curl -sS -m 15 -o /dev/null -w \"%{http_code}\" https://iptv-org.github.io/api/channels.json)"
     ]
   }
 }

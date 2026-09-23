@@ -18,7 +18,7 @@ public class StreamReportFailureResult
     public string UserAgent { get; set; }
     public string Referer { get; set; }
     public string Type { get; set; }
-    public string? Quality { get; set; }
+    public string Quality { get; set; }
     public string ProviderName { get; set; }
 
     public List<PlaybackFallback> Fallbacks { get; set; } = [];

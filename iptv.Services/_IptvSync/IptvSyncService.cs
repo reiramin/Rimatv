@@ -232,8 +232,7 @@ public class IptvSyncService(
 
         // Mass-deactivation guard.
         var activeExisting = existing.Count(c => !c.Inactive);
-        stats.GuardTripped = normalized.Count == 0 ||
-                             (activeExisting > 0 && normalized.Count < activeExisting * 0.5);
+        stats.GuardTripped = ShouldSkipDeactivation(normalized.Count, activeExisting);
 
         if (!stats.GuardTripped)
         {
@@ -332,8 +331,7 @@ public class IptvSyncService(
         }
 
         var activeExisting = existing.Count(s => !s.Inactive);
-        stats.GuardTripped = normalizedByExternalId.Count == 0 ||
-                             (activeExisting > 0 && normalizedByExternalId.Count < activeExisting * 0.5);
+        stats.GuardTripped = ShouldSkipDeactivation(normalizedByExternalId.Count, activeExisting);
 
         if (!stats.GuardTripped)
         {
@@ -462,6 +460,13 @@ public class IptvSyncService(
 
     private static readonly string[] NonPlayableMarkers =
         ["youtube.com", "youtu.be", "twitch.tv"];
+
+    /// <summary>
+    /// Mass-deactivation guard (§3.8): if a fetch returns 0 items, or fewer than 50% of the
+    /// provider's currently active items, do not deactivate anything.
+    /// </summary>
+    internal static bool ShouldSkipDeactivation(int normalizedCount, int activeExisting)
+        => normalizedCount == 0 || (activeExisting > 0 && normalizedCount < activeExisting * 0.5);
 
     internal static bool IsPlayableUrl(string url)
     {

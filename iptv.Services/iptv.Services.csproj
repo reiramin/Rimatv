@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="iptv.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\iptv.Domain\iptv.Domain.csproj" />
   </ItemGroup>
 
