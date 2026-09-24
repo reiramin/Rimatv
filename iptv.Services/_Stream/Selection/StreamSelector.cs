@@ -20,8 +20,8 @@ public class StreamSelector : IStreamSelector, RegisterMode.ISingletonDependency
 
         return eligible
             .OrderBy(c => ProbeClass(c, context, now))                // 1. probe: ok → unverified → region
-            .ThenBy(c => TypeRank(c.Type))                            // 1b. static → resolve → youtube → clientResolve → officialPlayer
             .ThenBy(c => RegionRank(c, context))                      // 2. iran: IR first; others: regional last
+            .ThenBy(c => TypeRank(c.Type))                            // 2b. static → resolve → youtube → clientResolve → officialPlayer
             .ThenBy(c => WebCompatibleRank(c.WebCompatible))          // 3. web-compatible first
             .ThenBy(c => c.RecentReportCount)                         // 4. fewer recent client reports first
             .ThenBy(c => IsHttps(c.StreamUri) ? 0 : 1)                //    https before http
