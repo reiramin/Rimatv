@@ -47,7 +47,7 @@ public class StreamService(
                       ?? throw new NotFoundException("Channel not found.");
 
         var now = DateTime.UtcNow;
-        var ordered = await SelectCanonicalAsync(channel, now, [], null);
+        var ordered = await SelectCanonicalAsync(channel, now, []);
 
         if (ordered.Count == 0)
             throw new NotFoundException("No playable stream is currently available for this channel.");
@@ -83,13 +83,14 @@ public class StreamService(
 
         var channel = await _channelRepository.GetByChannelIdAsync(stream.ChannelId);
 
-        var exclude = new HashSet<string>(update.ExcludeStreamIds ?? [], StringComparer.Ordinal)
-        {
-            stream.StreamId // never re-offer the broken stream
-        };
+        // Only exclusions that belong to this canonical channel count (never re-offer the reported
+        // stream); ids of other channels must not influence the USE_VPN rules.
+        var channelStreams = channel != null ? await LoadCanonicalStreamsAsync(channel) : [stream];
+        var excludedDocs = ReportFailureOutcome.ScopeExcluded(update.ExcludeStreamIds, channelStreams, stream);
+        var exclude = excludedDocs.Select(s => s.StreamId).ToHashSet(StringComparer.Ordinal);
 
         var ordered = channel != null
-            ? await SelectCanonicalAsync(channel, now, exclude, stream)
+            ? await OrderCanonicalAsync(channel, channelStreams, now, exclude)
             : [];
 
         var replacement = ordered.FirstOrDefault();
@@ -102,7 +103,6 @@ public class StreamService(
 
         if (replacement == null)
         {
-            var excludedDocs = await LoadExcludedAsync(exclude, stream);
             var decision = ReportFailureOutcome.Decide(stream, excludedDocs, update.Reason, now);
 
             var result = new StreamReportFailureResult
@@ -175,11 +175,14 @@ public class StreamService(
     #region Canonical, cross-provider selection
 
     private async Task<IReadOnlyList<StreamCandidate>> SelectCanonicalAsync(
-        Channels channel, DateTime now, HashSet<string> exclude, Streams reportedStream)
+        Channels channel, DateTime now, HashSet<string> exclude)
+        => await OrderCanonicalAsync(channel, await LoadCanonicalStreamsAsync(channel), now, exclude);
+
+    // Active streams of all provider-channels sharing this canonical id (cross-provider).
+    private async Task<List<Streams>> LoadCanonicalStreamsAsync(Channels channel)
     {
         var canonical = string.IsNullOrWhiteSpace(channel.CanonicalId) ? null : channel.CanonicalId;
 
-        // All provider-channels sharing this canonical id (cross-provider).
         var channelIds = canonical == null
             ? [channel.ChannelId]
             : await _channelRepository.AsQueryable()
@@ -190,9 +193,15 @@ public class StreamService(
         if (channelIds.Count == 0)
             channelIds = [channel.ChannelId];
 
-        var streams = await _streamRepository.AsQueryable()
+        return await _streamRepository.AsQueryable()
             .Where(s => channelIds.Contains(s.ChannelId) && !s.Inactive && !s.AdminDisabled)
             .ToListAsync();
+    }
+
+    private async Task<IReadOnlyList<StreamCandidate>> OrderCanonicalAsync(
+        Channels channel, List<Streams> streams, DateTime now, HashSet<string> exclude)
+    {
+        var canonical = string.IsNullOrWhiteSpace(channel.CanonicalId) ? null : channel.CanonicalId;
 
         var providers = await LoadProvidersAsync();
 
@@ -281,17 +290,6 @@ public class StreamService(
             Quality = c.Quality,
             ProviderName = c.ProviderName
         }, c)).ToList();
-
-    // The streams the client already tried (bounded), used to decide USE_VPN vs NoAlternativeStream.
-    private async Task<List<Streams>> LoadExcludedAsync(HashSet<string> exclude, Streams reported)
-    {
-        var ids = exclude.Where(id => id != reported.StreamId).Take(50).ToList();
-        var docs = ids.Count == 0
-            ? []
-            : await _streamRepository.AsQueryable().Where(s => ids.Contains(s.StreamId)).ToListAsync();
-        docs.Add(reported);
-        return docs;
-    }
 
     #endregion
 

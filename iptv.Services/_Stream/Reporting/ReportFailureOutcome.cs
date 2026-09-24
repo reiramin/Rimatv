@@ -20,6 +20,23 @@ public static class ReportFailureOutcome
 
     public sealed record Decision(bool UseVpn, List<string> RequiredRegions);
 
+    /// <summary>
+    /// The client's excludeStreamIds, scoped to the reported canonical channel: ids of other
+    /// channels are ignored (they must not influence rules (a)/(b)). The reported stream is always
+    /// included.
+    /// </summary>
+    public static List<Streams> ScopeExcluded(
+        IEnumerable<string> requestedIds, IReadOnlyCollection<Streams> channelStreams, Streams reported)
+    {
+        var requested = new HashSet<string>(requestedIds ?? [], StringComparer.Ordinal);
+        var scoped = (channelStreams ?? [])
+            .Where(s => s.StreamId != reported?.StreamId && requested.Contains(s.StreamId))
+            .ToList();
+        if (reported != null)
+            scoped.Add(reported);
+        return scoped;
+    }
+
     /// <param name="excluded">All streams the client has tried, including the reported one.</param>
     public static Decision Decide(
         Streams reported, IReadOnlyCollection<Streams> excluded, StreamFailureReason reason, DateTime now)
