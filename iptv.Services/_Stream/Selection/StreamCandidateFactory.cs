@@ -64,6 +64,23 @@ public static class StreamCandidateFactory
             IsHealthy = s.IsHealthy,
             ServerProbeUnreliable = s.ServerProbeUnreliable,
             RecentReportCount = RecentReportCount(s.RecentClientFailures, now),
-            ClientFailingUntil = s.ClientFailingUntil
+            ClientFailingUntil = s.ClientFailingUntil,
+            Type = string.IsNullOrWhiteSpace(s.Type) ? InferType(s.StreamUri) : s.Type,
+            RequiredRegion = string.IsNullOrWhiteSpace(s.RequiredRegion) ? null : s.RequiredRegion,
+            WebCompatible = s.WebCompatible,
+            ProbeStatus = s.ProbeStatus,
+            ProbeMoment = s.ProbeMoment,
+            RelayEligible = s.RelayEligible,
+            PageUrl = s.PageUrl,
+            ResolveMethod = s.ResolveMethod,
+            ResolvePattern = s.ResolvePattern,
+            ResolveApiUrl = s.ResolveApiUrl,
+            ResolveHeaders = s.ResolveHeaders is { Count: > 0 } ? s.ResolveHeaders : null,
+            PlayerUrl = s.PlayerUrl,
+            Embeddable = s.Embeddable
         };
+
+    // Streams synced before Type was always set.
+    private static string InferType(string uri)
+        => uri != null && uri.Contains(".m3u8", StringComparison.OrdinalIgnoreCase) ? StreamTypes.Hls : StreamTypes.Direct;
 }
