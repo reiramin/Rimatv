@@ -173,10 +173,11 @@ public class IptvSyncService(
         using (var process = System.Diagnostics.Process.GetCurrentProcess())
             _logger.LogInformation(
                 "SyncMemory provider={Provider} scope={Scope} channels={Channels} streams={Streams} " +
-                "workingSetMB={WorkingSet:F1} peakWorkingSetMB={Peak:F1} gcHeapMB={Heap:F1}",
+                "workingSetMB={WorkingSet:F1} liveHeapAfterLastGcMB={LiveHeap:F1} allocatedHeapMB={Heap:F1}",
                 provider.Name, _syncSettings?.IngestScope ?? IngestScope.Registry,
                 channelStats.Total, streamStats.Total,
-                process.WorkingSet64 / 1048576.0, process.PeakWorkingSet64 / 1048576.0,
+                process.WorkingSet64 / 1048576.0,
+                GC.GetGCMemoryInfo().HeapSizeBytes / 1048576.0,
                 GC.GetTotalMemory(false) / 1048576.0);
 
         return MapToResult(provider, syncLog);
