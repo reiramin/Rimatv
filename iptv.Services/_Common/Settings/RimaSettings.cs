@@ -34,6 +34,13 @@ public class SyncSettings
     public IngestScope IngestScope { get; set; } = IngestScope.Registry;
 }
 
+/// <summary>Reverse-proxy options (section "Proxy", env Proxy__TrustedHops).</summary>
+public class ProxySettings
+{
+    /// <summary>Trusted proxies in front of the edge proxy that appends X-Forwarded-For (0 on plain Render).</summary>
+    public int TrustedHops { get; set; }
+}
+
 /// <summary>Failure-report options (section "Reports", env Reports__IpHashSecret).</summary>
 public class ReportSettings
 {

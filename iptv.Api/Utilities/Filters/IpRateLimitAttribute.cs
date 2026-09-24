@@ -1,16 +1,16 @@
 using System.Collections.Concurrent;
-using iptv.Services._Stream.Reporting;
+using iptv.Services._Common;
+using iptv.Services._Common.Settings;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Caching.Memory;
 using Utilities.Exceptions;
-using Utilities.Extensions;
 
 namespace iptv.Api.Utilities.Filters;
 
 /// <summary>
 /// Additional per-client-IP limit for anonymous endpoints, applied on top of [CustomRateLimit]
-/// (which stays unchanged). Keyed by the first X-Forwarded-For address, because Render sits
-/// behind a proxy. Fixed window: at most <see cref="MaxRequests"/> per <see cref="PeriodSeconds"/>.
+/// (which stays unchanged). Keyed by <see cref="ClientIp.Resolve"/> (right-most X-Forwarded-For
+/// address after the trusted hops; the left-most one is spoofable). Fixed window: at most <see cref="MaxRequests"/> per <see cref="PeriodSeconds"/>.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method)]
 public class IpRateLimitAttribute(int maxRequests, int periodSeconds) : ActionFilterAttribute
@@ -24,7 +24,8 @@ public class IpRateLimitAttribute(int maxRequests, int periodSeconds) : ActionFi
     {
         var http = context.HttpContext;
         var cache = (IMemoryCache)http.RequestServices.GetService(typeof(IMemoryCache));
-        var ip = ReporterKey.FirstForwardedAddress(http.GetRequestIpv4()) ?? "unknown";
+        var hops = (http.RequestServices.GetService(typeof(ProxySettings)) as ProxySettings)?.TrustedHops ?? 0;
+        var ip = ClientIp.Resolve(http, hops) ?? "unknown";
         var key = $"iprl_{context.ActionDescriptor.DisplayName}_{ip}";
 
         bool allowed;

@@ -33,6 +33,7 @@ namespace iptv.Api.Utilities.Configurations
             services.RegisterSetting<RelaySettings>(configuration.GetSection("Relay"));
             services.RegisterSetting<SyncSettings>(configuration.GetSection("Sync"));
             services.RegisterSetting<ReportSettings>(configuration.GetSection("Reports"));
+            services.RegisterSetting<ProxySettings>(configuration.GetSection("Proxy"));
 
         }
 

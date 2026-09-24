@@ -11,23 +11,14 @@ public static class ReporterKey
 {
     public const string Prefix = "ip:";
 
-    /// <summary>First address of an X-Forwarded-For value ("client, proxy1, proxy2").</summary>
-    public static string FirstForwardedAddress(string forwardedOrIp)
-    {
-        if (string.IsNullOrWhiteSpace(forwardedOrIp))
-            return null;
-
-        var first = forwardedOrIp.Split(',')[0].Trim();
-        return first.Length == 0 ? null : first;
-    }
-
     public static string DailySalt(byte[] secret, DateTime utcNow)
         => Convert.ToHexString(HMACSHA256.HashData(secret,
             Encoding.UTF8.GetBytes(utcNow.ToUniversalTime().ToString("yyyy-MM-dd"))));
 
+    /// <param name="clientIp">Already resolved with <see cref="_Common.ClientIp.Resolve"/>.</param>
     public static string FromIp(string clientIp, byte[] secret, DateTime utcNow)
     {
-        var ip = FirstForwardedAddress(clientIp) ?? "unknown";
+        var ip = string.IsNullOrWhiteSpace(clientIp) ? "unknown" : clientIp.Trim();
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(ip + DailySalt(secret, utcNow)));
         return Prefix + Convert.ToHexString(hash).ToLowerInvariant();
     }

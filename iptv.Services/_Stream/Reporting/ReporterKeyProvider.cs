@@ -5,7 +5,7 @@ namespace iptv.Services._Stream.Reporting;
 
 public interface IReporterKeyProvider
 {
-    /// <summary>Hashed reporter key for an anonymous client IP (X-Forwarded-For value accepted).</summary>
+    /// <summary>Hashed reporter key for an anonymous client IP (resolved with ClientIp.Resolve).</summary>
     string ForIp(string clientIp);
 }
 
