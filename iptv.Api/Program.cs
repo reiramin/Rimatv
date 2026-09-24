@@ -33,6 +33,10 @@ builder.Services.AddHttpClient(
         client.Timeout = TimeSpan.FromSeconds(90);
     });
 
+// Resolver fetches go through an SSRF guard (public addresses only, every redirect hop, max 5).
+builder.Services.AddHttpClient(iptv.Services._Resolver.StreamResolverService.HttpClientName)
+    .ConfigurePrimaryHttpMessageHandler(iptv.Services._Resolver.SsrfGuard.CreateHandler);
+
 builder.Host.UseServiceProviderFactory(
     new AutofacServiceProviderFactory());
 
