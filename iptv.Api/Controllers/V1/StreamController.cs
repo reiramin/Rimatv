@@ -46,7 +46,10 @@ namespace iptv.Api.Controllers.V1
 
         // Anonymous: the app has no login. [CustomRateLimit] stays, plus a stricter per-IP limit.
         // Reporters are keyed by SHA256(client IP + daily salt); the raw IP is never stored.
+        // [IgnoreLogging]: LoggingMiddleware stores the raw IP and headers, which the anonymous
+        // endpoints must never persist.
         [HttpPost("[action]")]
+        [IgnoreLogging]
         [CustomRateLimit]
         [IpRateLimit(maxRequests: 30, periodSeconds: 600)]
         [SwaggerOperation(Summary = "Report a failing stream; a replacement is selected across all providers of the canonical channel.",
@@ -61,6 +64,7 @@ namespace iptv.Api.Controllers.V1
         // naming of the other routes.
         [HttpGet("ResolveAsync")]
         [HttpGet("Resolve")]
+        [IgnoreLogging]
         [CustomRateLimit(maxAttemptsCount: 30, periodSeconds: 60)]
         [SwaggerOperation(Summary = "Resolve an official tokenized stream (type = resolve) to a playable .m3u8.",
             Tags = ["Stream"])]
