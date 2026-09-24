@@ -83,8 +83,8 @@ public static partial class ResolverExtraction
             {
                 if (token.StartsWith('['))
                 {
-                    var i = int.Parse(token.Trim('[', ']'));
-                    if (current.ValueKind != JsonValueKind.Array || i >= current.GetArrayLength())
+                    if (!int.TryParse(token.Trim('[', ']'), out var i) ||
+                        current.ValueKind != JsonValueKind.Array || i >= current.GetArrayLength())
                         return null;
                     current = current[i];
                 }

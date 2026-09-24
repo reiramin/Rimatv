@@ -73,7 +73,9 @@ public static class StreamCandidateFactory
             ResolvePattern = s.ResolvePattern,
             ResolveApiUrl = s.ResolveApiUrl,
             ResolveBaseUrl = s.ResolveBaseUrl,
-            ResolveHeaders = s.ResolveHeaders is { Count: > 0 } ? s.ResolveHeaders : null,
+            ResolveHeaders = s.ResolveHeaders is { Count: > 0 }
+                ? new Dictionary<string, string>(s.ResolveHeaders, StringComparer.OrdinalIgnoreCase)
+                : null,
             PlayerUrl = s.PlayerUrl,
             Embeddable = s.Embeddable
         };

@@ -121,7 +121,8 @@ namespace iptv.Services._Resolver
 
         private async Task<StreamResolveResult> ResolveCoreAsync(Streams stream, DateTime now, CancellationToken ct)
         {
-            var headers = stream.ResolveHeaders ?? [];
+            // Case-insensitive after load: Mongo materialises an ordinal dictionary.
+            var headers = new Dictionary<string, string>(stream.ResolveHeaders ?? [], StringComparer.OrdinalIgnoreCase);
             var sourceUrl = !string.IsNullOrWhiteSpace(stream.ResolveApiUrl) ? stream.ResolveApiUrl : stream.PageUrl ?? stream.StreamUri;
 
             var (status, body) = await GetAsync(sourceUrl, headers, ct);

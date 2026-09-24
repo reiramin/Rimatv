@@ -50,7 +50,7 @@ public class ResolverProviderFetcher(ILogger<ResolverProviderFetcher> _logger)
         var result = new ProviderFetchResult();
         var channels = new Dictionary<string, ExternalChannel>(StringComparer.Ordinal);
 
-        foreach (var e in catalog.Resolvers ?? [])
+        foreach (var e in (catalog.Resolvers ?? []).Where(e => e != null))
         {
             // A declared IP-bound token can never be resolved server-side for the user: no resolve
             // stream is created; the channel keeps its clientResolve / officialPlayer / youtube rungs.
