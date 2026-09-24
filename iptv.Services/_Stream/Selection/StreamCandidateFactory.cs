@@ -21,9 +21,9 @@ public static class StreamCandidateFactory
     /// Builds candidates for streams whose provider is in <paramref name="activeProviders"/>.
     /// A stream whose provider is inactive or deleted is skipped — never offered with priority 0.
     /// </summary>
-    public static List<StreamCandidate> FromActiveProviders(
-        IEnumerable<Streams> streams,
-        Func<Streams, string> canonicalOf,
+    internal static List<StreamCandidate> FromActiveProviders(
+        IEnumerable<StreamLite> streams,
+        Func<StreamLite, string> canonicalOf,
         IReadOnlyDictionary<string, ProviderInfo> activeProviders,
         DateTime now)
     {
@@ -34,14 +34,32 @@ public static class StreamCandidateFactory
                 !activeProviders.TryGetValue(s.ProviderPublicKey, out var provider))
                 continue;
 
-            result.Add(FromDoc(s, canonicalOf(s), provider.Priority, provider.Name, now));
+            result.Add(FromLite(s, canonicalOf(s), provider.Priority, provider.Name, now));
         }
 
         return result;
     }
 
+    public static List<StreamCandidate> FromActiveProviders(
+        IEnumerable<Streams> streams,
+        Func<Streams, string> canonicalOf,
+        IReadOnlyDictionary<string, ProviderInfo> activeProviders,
+        DateTime now)
+        => streams
+            .Where(s => !string.IsNullOrEmpty(s.ProviderPublicKey) && activeProviders.ContainsKey(s.ProviderPublicKey))
+            .Select(s =>
+            {
+                var provider = activeProviders[s.ProviderPublicKey];
+                return FromDoc(s, canonicalOf(s), provider.Priority, provider.Name, now);
+            })
+            .ToList();
+
     public static StreamCandidate FromDoc(
         Streams s, string canonicalId, int providerPriority, string providerName, DateTime now)
+        => FromLite(StreamLite.FromDoc(s), canonicalId, providerPriority, providerName, now);
+
+    internal static StreamCandidate FromLite(
+        StreamLite s, string canonicalId, int providerPriority, string providerName, DateTime now)
         => new()
         {
             StreamId = s.StreamId,

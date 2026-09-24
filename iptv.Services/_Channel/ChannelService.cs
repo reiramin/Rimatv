@@ -234,13 +234,13 @@ public class ChannelService(
 
     private Selection SelectForCanonical(
             IEnumerable<ChannelLiteProjection> group,
-            ILookup<string, Streams> streamsByChannel,
+            ILookup<string, StreamLite> streamsByChannel,
             Dictionary<string, ProviderInfo> providers,
             DateTime now,
             string curatedCountry)
     {
         string currentStreamId = null;
-        var streams = new List<Streams>();
+        var streams = new List<StreamLite>();
         var canonicalByChannel = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var channel in group)
@@ -531,36 +531,7 @@ public class ChannelService(
         var streams = await _streamRepository
             .AsQueryable()
             .Where(q => !q.Inactive && !q.AdminDisabled)
-            .Select(q => new Streams
-            {
-                StreamId = q.StreamId,
-                ChannelId = q.ChannelId,
-                ProviderPublicKey = q.ProviderPublicKey,
-                StreamUri = q.StreamUri,
-                UserAgent = q.UserAgent,
-                Referer = q.Referer,
-                Quality = q.Quality,
-                QualityRank = q.QualityRank,
-                IsAdaptive = q.IsAdaptive,
-                IsHealthy = q.IsHealthy,
-                ServerProbeUnreliable = q.ServerProbeUnreliable,
-                ClientFailingUntil = q.ClientFailingUntil,
-                RecentClientFailures = q.RecentClientFailures,
-                Type = q.Type,
-                RequiredRegion = q.RequiredRegion,
-                RelayEligible = q.RelayEligible,
-                WebCompatible = q.WebCompatible,
-                ProbeStatus = q.ProbeStatus,
-                ProbeMoment = q.ProbeMoment,
-                PageUrl = q.PageUrl,
-                ResolveMethod = q.ResolveMethod,
-                ResolvePattern = q.ResolvePattern,
-                ResolveApiUrl = q.ResolveApiUrl,
-                ResolveBaseUrl = q.ResolveBaseUrl,
-                ResolveHeaders = q.ResolveHeaders,
-                PlayerUrl = q.PlayerUrl,
-                Embeddable = q.Embeddable
-            })
+            .Select(StreamLite.Projection)   // slim shape (F20)
             .ToListAsync(cancellationToken);
 
         var providers = (await _providerRepository
@@ -584,7 +555,7 @@ public class ChannelService(
     {
         public DateTime FetchedAt { get; init; }
         public List<ChannelLiteProjection> Channels { get; init; } = [];
-        public List<Streams> Streams { get; init; } = [];
+        public List<StreamLite> Streams { get; init; } = [];
         public Dictionary<string, ProviderInfo> Providers { get; init; } = [];
     }
 
