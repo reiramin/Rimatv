@@ -688,8 +688,10 @@ public class IptvSyncService(
         {
             var channelIds = chunk.Select(c => c.ChannelId).ToList();
             var ids = chunk.Select(c => c.Id).ToList();
-            await _streamRepository.DeleteManyAsync(s => channelIds.Contains(s.ChannelId), ct);
-            await _channelRepository.DeleteManyAsync(c => ids.Contains(c.Id), ct);
+            // Physical deletes: Monjo's DeleteManyAsync is a soft delete (IsDeleted) that frees no
+            // storage and would collide with the unique (provider, externalId) index on re-insert.
+            await _streamRepository.RealDeleteManyAsync(s => channelIds.Contains(s.ChannelId), ct);
+            await _channelRepository.RealDeleteManyAsync(c => ids.Contains(c.Id), ct);
         }
 
         _logger.LogInformation("Ingest scope Registry: deleted {Count} out-of-scope channels and their streams.",
