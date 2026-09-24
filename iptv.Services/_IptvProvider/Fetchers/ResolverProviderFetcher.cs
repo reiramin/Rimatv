@@ -157,7 +157,9 @@ public class ResolverProviderFetcher(ILogger<ResolverProviderFetcher> _logger)
             PlayerUrl = type == StreamTypes.OfficialPlayer ? url : null,
             Embeddable = type == StreamTypes.OfficialPlayer ? e.Embeddable : null,
             Quality = "Auto",
-            StableExternalId = StableId(providerPublicKey, e.CanonicalId.Trim(), type)
+            // A channel may have several youtube rungs (channel live + video id): tell them apart.
+            StableExternalId = StableId(providerPublicKey, e.CanonicalId.Trim(),
+                type == StreamTypes.YouTube ? $"{type}|{url}" : type)
         };
         return null;
     }
