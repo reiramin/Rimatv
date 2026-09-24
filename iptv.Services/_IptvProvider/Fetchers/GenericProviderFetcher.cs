@@ -21,31 +21,57 @@ public class GenericProviderFetcher(IHttpClientFactory httpClientFactory)
     {
         using var client = CreateClient(provider);
 
-        var channels = await FetchJsonAsync<List<ExternalChannel>>(
-            client, provider, provider.ChannelsEndpoint, cancellationToken) ?? [];
-
+        // Streams first: only channels/logos/feeds referenced by a stream are kept, and every file
+        // is deserialized item by item from the response stream (never held as a string).
         List<ExternalStream> streams = [];
         if (!string.IsNullOrWhiteSpace(provider.StreamsEndpoint))
-            streams = await FetchJsonAsync<List<ExternalStream>>(
-                client, provider, provider.StreamsEndpoint, cancellationToken) ?? [];
+            await foreach (var st in FetchJsonItemsAsync<ExternalStream>(
+                               client, provider, provider.StreamsEndpoint, cancellationToken))
+                if (!string.IsNullOrWhiteSpace(st.Url) && !string.IsNullOrWhiteSpace(st.Channel))
+                    streams.Add(st);
 
-        List<ExternalLogo> logos = [];
+        var referenced = streams.Select(st => st.Channel.Trim()).ToHashSet(StringComparer.Ordinal);
+
+        var channels = new List<ExternalChannel>();
+        await foreach (var c in FetchJsonItemsAsync<ExternalChannel>(
+                           client, provider, provider.ChannelsEndpoint, cancellationToken))
+            if (!string.IsNullOrWhiteSpace(c.Id) && referenced.Contains(c.Id.Trim()))
+                channels.Add(c);
+
+        // Logos: keep only the best candidate per referenced channel while streaming.
+        var bestLogo = new Dictionary<string, ExternalLogo>(StringComparer.Ordinal);
         if (!string.IsNullOrWhiteSpace(provider.LogosEndpoint))
-            logos = await FetchJsonAsync<List<ExternalLogo>>(
-                client, provider, provider.LogosEndpoint, cancellationToken) ?? [];
+            await foreach (var l in FetchJsonItemsAsync<ExternalLogo>(
+                               client, provider, provider.LogosEndpoint, cancellationToken))
+            {
+                if (string.IsNullOrWhiteSpace(l.Channel) || string.IsNullOrWhiteSpace(l.Logo))
+                    continue;
+                var ch = l.Channel.Trim();
+                if (!referenced.Contains(ch))
+                    continue;
+                if (!bestLogo.TryGetValue(ch, out var current) || LogoRank(l).CompareTo(LogoRank(current)) > 0)
+                    bestLogo[ch] = l;
+            }
 
         List<ExternalFeed> feeds = [];
         if (!string.IsNullOrWhiteSpace(provider.FeedsEndpoint))
-            feeds = await FetchJsonAsync<List<ExternalFeed>>(
-                client, provider, provider.FeedsEndpoint, cancellationToken) ?? [];
+            await foreach (var f in FetchJsonItemsAsync<ExternalFeed>(
+                               client, provider, provider.FeedsEndpoint, cancellationToken))
+                if (!string.IsNullOrWhiteSpace(f.Channel) && referenced.Contains(f.Channel.Trim()))
+                    feeds.Add(f);
 
         List<ExternalBlocklistEntry> blocklist = [];
         if (!string.IsNullOrWhiteSpace(provider.BlocklistEndpoint))
-            blocklist = await FetchJsonAsync<List<ExternalBlocklistEntry>>(
-                client, provider, provider.BlocklistEndpoint, cancellationToken) ?? [];
+            await foreach (var e in FetchJsonItemsAsync<ExternalBlocklistEntry>(
+                               client, provider, provider.BlocklistEndpoint, cancellationToken))
+                blocklist.Add(e);
 
-        return BuildResult(channels, streams, logos, feeds, blocklist);
+        return BuildResult(channels, streams, [.. bestLogo.Values], feeds, blocklist);
     }
+
+    // Same preference as BuildResult: in_use, then no feed, then largest width.
+    private static (int, int, int) LogoRank(ExternalLogo l)
+        => (l.InUse ? 1 : 0, string.IsNullOrWhiteSpace(l.Feed) ? 1 : 0, l.Width);
 
     internal static ProviderFetchResult BuildResult(
         List<ExternalChannel> channels,

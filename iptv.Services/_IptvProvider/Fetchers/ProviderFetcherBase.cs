@@ -114,6 +114,22 @@ public abstract class ProviderFetcherBase(IHttpClientFactory httpClientFactory)
         return await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, cancellationToken);
     }
 
+    /// <summary>
+    /// Deserializes a top-level JSON array item by item straight from the response stream, so a
+    /// large file (iptv-org channels/feeds/logos) is never held as a string or a full list.
+    /// </summary>
+    protected async IAsyncEnumerable<T> FetchJsonItemsAsync<T>(
+        HttpClient client, IptvProviders provider, string endpoint,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        using var response = await SendAsync(client, provider, endpoint, cancellationToken);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+
+        await foreach (var item in JsonSerializer.DeserializeAsyncEnumerable<T>(stream, JsonOptions, cancellationToken))
+            if (item != null)
+                yield return item;
+    }
+
     /// <summary>Streams the response body line by line (used by the M3U parser to avoid double buffering).</summary>
     protected async IAsyncEnumerable<string> FetchLinesAsync(
         HttpClient client, IptvProviders provider, string endpoint,

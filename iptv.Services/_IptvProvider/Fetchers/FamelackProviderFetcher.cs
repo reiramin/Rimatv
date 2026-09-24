@@ -13,6 +13,8 @@ public class FamelackChannel
     [JsonPropertyName("languages")] public List<string> Languages { get; set; } = [];
     [JsonPropertyName("country")] public string Country { get; set; }
     [JsonPropertyName("isGeoBlocked")] public bool IsGeoBlocked { get; set; }
+
+    [JsonIgnore] public string SourceEndpoint { get; set; }
 }
 
 public class FamelackSources
@@ -46,6 +48,8 @@ public class FamelackProviderFetcher(IHttpClientFactory httpClientFactory)
             {
                 var batch = await FetchJsonAsync<List<FamelackChannel>>(
                     client, provider, endpoint, cancellationToken) ?? [];
+                foreach (var c in batch)
+                    c.SourceEndpoint = endpoint;
                 all.AddRange(batch);
             }
             catch
@@ -85,7 +89,8 @@ public class FamelackProviderFetcher(IHttpClientFactory httpClientFactory)
                     Country = c.Country?.Trim().ToUpperInvariant(),
                     Categories = [],
                     Languages = c.Languages ?? [],
-                    Labels = c.IsGeoBlocked ? ["Geo-blocked"] : []
+                    Labels = c.IsGeoBlocked ? ["Geo-blocked"] : [],
+                    SourceEndpoint = c.SourceEndpoint
                 });
             }
 

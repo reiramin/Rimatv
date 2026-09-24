@@ -6,6 +6,7 @@ using iptv.Domain.Repositories.Contracts;
 using iptv.Services._Canonical;
 using iptv.Services._Channel;
 using iptv.Services._ChannelRegistry.Contracts;
+using iptv.Services._Common.Settings;
 using iptv.Services._IptvNotifier.Contracts;
 using iptv.Services._IptvProvider.Contracts;
 using iptv.Services._IptvProvider.DTOs.Results;
@@ -26,6 +27,7 @@ public class IptvSyncService(
     ISyncLogRepository _syncLogRepository,
     IChannelRegistryService _registryService,
     IIptvEventPublisher _eventPublisher,
+    SyncSettings _syncSettings,
     ILogger<IptvSyncService> _logger)
     : IIptvSyncService, RegisterMode.IScopedDependency
 {
@@ -167,6 +169,16 @@ public class IptvSyncService(
         // Newly synced data changes the user-facing lists.
         ChannelService.InvalidateSharedLiteCache();
 
+        // Free-tier budget (512 MB RAM): log memory per provider so ingest scopes can be compared.
+        using (var process = System.Diagnostics.Process.GetCurrentProcess())
+            _logger.LogInformation(
+                "SyncMemory provider={Provider} scope={Scope} channels={Channels} streams={Streams} " +
+                "workingSetMB={WorkingSet:F1} peakWorkingSetMB={Peak:F1} gcHeapMB={Heap:F1}",
+                provider.Name, _syncSettings?.IngestScope ?? IngestScope.Registry,
+                channelStats.Total, streamStats.Total,
+                process.WorkingSet64 / 1048576.0, process.PeakWorkingSet64 / 1048576.0,
+                GC.GetTotalMemory(false) / 1048576.0);
+
         return MapToResult(provider, syncLog);
     }
 
@@ -185,7 +197,10 @@ public class IptvSyncService(
             .Select(g => g.First())
             .Where(c => playableStreamsByChannel.ContainsKey(c.Id.Trim()))   // >=1 playable stream
             .Where(c => IsIngestable(c, fetched.BlockedChannelIds, registryIndex))
-            .Select(c => NormalizeChannel(provider, c, registryIndex))
+            .Select(c => (External: c, Doc: NormalizeChannel(provider, c, registryIndex)))
+            .Where(x => IngestScopePolicy.Keep(_syncSettings?.IngestScope ?? IngestScope.Registry,
+                registryIndex, provider, x.External, x.Doc.CanonicalId))
+            .Select(x => x.Doc)
             .ToList();
 
         stats.Total = normalized.Count;
@@ -195,6 +210,25 @@ public class IptvSyncService(
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
 
         var existing = await _channelRepository.GetByProviderAsync(provider.PublicKey, cancellationToken);
+
+        // Registry scope: channels (and their streams) outside the scope are deleted, not merely
+        // deactivated, so the M0 storage is actually freed. Only after a non-empty fetch.
+        var scope = _syncSettings?.IngestScope ?? IngestScope.Registry;
+        if (scope == IngestScope.Registry && normalized.Count > 0)
+        {
+            var outOfScope = existing
+                .Where(c => !IngestScopePolicy.KeepExisting(scope, registryIndex, provider, c))
+                .ToList();
+
+            if (outOfScope.Count > 0)
+            {
+                await DeleteChannelsWithStreamsAsync(outOfScope, cancellationToken);
+                stats.Deleted = outOfScope.Count;
+                var removed = outOfScope.Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
+                existing = existing.Where(c => !removed.Contains(c.Id)).ToList();
+            }
+        }
+
         var existingByExternalId = existing
             .GroupBy(c => c.ExternalId, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
@@ -645,6 +679,20 @@ public class IptvSyncService(
 
     #region Bulk / logging helpers
 
+    private async Task DeleteChannelsWithStreamsAsync(List<Channels> channels, CancellationToken ct)
+    {
+        foreach (var chunk in channels.Chunk(1000))
+        {
+            var channelIds = chunk.Select(c => c.ChannelId).ToList();
+            var ids = chunk.Select(c => c.Id).ToList();
+            await _streamRepository.DeleteManyAsync(s => channelIds.Contains(s.ChannelId), ct);
+            await _channelRepository.DeleteManyAsync(c => ids.Contains(c.Id), ct);
+        }
+
+        _logger.LogInformation("Ingest scope Registry: deleted {Count} out-of-scope channels and their streams.",
+            channels.Count);
+    }
+
     private static async Task BulkWriteAsync(
         IChannelRepository repo, List<WriteModel<Channels>> writes, CancellationToken ct)
     {
@@ -730,6 +778,7 @@ public class IptvSyncService(
         public int Inserted { get; set; }
         public int Updated { get; set; }
         public int Deactivated { get; set; }
+        public int Deleted { get; set; }
         public bool GuardTripped { get; set; }
     }
 

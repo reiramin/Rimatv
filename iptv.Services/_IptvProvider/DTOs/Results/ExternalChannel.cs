@@ -26,4 +26,7 @@ public class ExternalChannel
     // Canonical id hint from the source (e.g. iptv-org id or tvg-id). When absent the
     // sync resolves it via the registry / fallback scheme.
     [JsonIgnore] public string CanonicalIdHint { get; set; }
+
+    // The endpoint (file) this channel came from, for providers with one file per country.
+    [JsonIgnore] public string SourceEndpoint { get; set; }
 }
