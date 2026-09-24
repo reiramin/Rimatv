@@ -1,6 +1,7 @@
 using iptv.Domain.Collections;
 using iptv.Domain.Repositories.Contracts;
 using iptv.Services._Channel.Contracts;
+using iptv.Services._Channel.Playability;
 using iptv.Services._Channel.DTOs.Results;
 using iptv.Services._Channel.DTOs.Updates;
 using iptv.Services._ChannelRegistry;
@@ -25,7 +26,8 @@ public class ChannelService(
     IStreamRepository _streamRepository,
     IIptvProviderRepository _providerRepository,
     IChannelRegistryService _registryService,
-    IStreamSelector _streamSelector)
+    IStreamSelector _streamSelector,
+    IStreamOutputMapper _outputMapper)
     : IChannelService, RegisterMode.IScopedDependency
 {
     private static readonly SemaphoreSlim _liteDataCacheLock = new(1, 1);
@@ -51,14 +53,16 @@ public class ChannelService(
 
         foreach (var group in lite.Channels.GroupBy(c => CanonicalKey(c)))
         {
-            var selection = SelectForCanonical(group, streamsByChannel, lite.Providers, now);
+            index.ByCanonicalId.TryGetValue(group.Key, out var reg);
+
+            var selection = SelectForCanonical(group, streamsByChannel, lite.Providers, now, reg?.CuratedCountry);
             if (selection.Winner == null)
                 continue; // never return a canonical channel with no playable stream
 
             var display = PickDisplayChannel(group, lite.Providers);
-            index.ByCanonicalId.TryGetValue(group.Key, out var reg);
+            var status = ComputeStatus(selection.Eligible, reg, display.Country);
 
-            result.Add(new AllChannelWithStreamResult
+            result.Add(_outputMapper.Fill(new AllChannelWithStreamResult
             {
                 ChannelId = display.ChannelId,
                 CanonicalId = group.Key,
@@ -66,7 +70,7 @@ public class ChannelService(
                 NameFa = reg?.NameFa,
                 CuratedCountry = reg?.CuratedCountry,
                 ImageUri = display.ImageUri,
-                Country = ResolveDisplayCountry(display.Country, reg),
+                Country = status.Country,
                 Category = reg?.Categories?.FirstOrDefault() ?? display.Category,
                 CurrentStreamUrl = selection.Winner.StreamUri,
                 StreamId = selection.Winner.StreamId,
@@ -74,8 +78,14 @@ public class ChannelService(
                 StreamReferer = selection.Winner.Referer,
                 StreamQuality = selection.Winner.Quality,
                 ProviderName = selection.Winner.ProviderName,
-                FallbackStreams = selection.Fallbacks
-            });
+                FallbackStreams = selection.Fallbacks,
+                Status = status.Status,
+                RequiredRegions = status.RequiredRegions,
+                ErrorCode = status.ErrorCode,
+                Message = status.Message,
+                MessageFa = status.MessageFa,
+                VpnHelpUrl = status.VpnHelpUrl
+            }, selection.Winner));
         }
 
         return result.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ToList();
@@ -111,13 +121,14 @@ public class ChannelService(
             if (group.Count == 0)
                 continue;
 
-            var selection = SelectForCanonical(group, streamsByChannel, lite.Providers, now);
+            var selection = SelectForCanonical(group, streamsByChannel, lite.Providers, now, entry.CuratedCountry);
             if (selection.Winner == null)
                 continue;
 
             var display = PickDisplayChannel(group, lite.Providers);
+            var status = ComputeStatus(selection.Eligible, entry, display.Country);
 
-            result.Add(new ChannelWithStreamResult
+            result.Add(_outputMapper.Fill(new ChannelWithStreamResult
             {
                 ChannelId = display.ChannelId,
                 CanonicalId = entry.CanonicalId,
@@ -125,7 +136,7 @@ public class ChannelService(
                 NameFa = entry.NameFa,
                 CuratedCountry = entry.CuratedCountry,
                 ImageUri = display.ImageUri,
-                Country = ResolveDisplayCountry(display.Country, entry),
+                Country = status.Country,
                 Category = entry.Categories?.FirstOrDefault() ?? display.Category,
                 CurrentStreamUrl = selection.Winner.StreamUri,
                 StreamId = selection.Winner.StreamId,
@@ -133,8 +144,14 @@ public class ChannelService(
                 Referer = selection.Winner.Referer,
                 Quality = selection.Winner.Quality,
                 FallbackStreams = selection.Fallbacks,
-                Inactive = false
-            });
+                Inactive = false,
+                Status = status.Status,
+                RequiredRegions = status.RequiredRegions,
+                ErrorCode = status.ErrorCode,
+                Message = status.Message,
+                MessageFa = status.MessageFa,
+                VpnHelpUrl = status.VpnHelpUrl
+            }, selection.Winner));
         }
 
         return result;
@@ -158,7 +175,7 @@ public class ChannelService(
             if (group.Count == 0)
                 continue;
 
-            var selection = SelectForCanonical(group, streamsByChannel, lite.Providers, now);
+            var selection = SelectForCanonical(group, streamsByChannel, lite.Providers, now, entry.CuratedCountry);
             if (selection.Winner == null)
                 continue;
 
@@ -182,11 +199,13 @@ public class ChannelService(
 
     #region Selection helpers
 
-    private (StreamCandidate Winner, List<FallbackStreamResult> Fallbacks) SelectForCanonical(
-        IEnumerable<ChannelLiteProjection> group,
-        ILookup<string, Streams> streamsByChannel,
-        Dictionary<string, ProviderInfo> providers,
-        DateTime now)
+    private (StreamCandidate Winner, List<FallbackStreamResult> Fallbacks, IReadOnlyList<StreamCandidate> Eligible)
+        SelectForCanonical(
+            IEnumerable<ChannelLiteProjection> group,
+            ILookup<string, Streams> streamsByChannel,
+            Dictionary<string, ProviderInfo> providers,
+            DateTime now,
+            string curatedCountry)
     {
         string currentStreamId = null;
         var streams = new List<Streams>();
@@ -206,12 +225,12 @@ public class ChannelService(
             streams, s => canonicalByChannel.GetValueOrDefault(s.ChannelId), providers, now);
 
         var ordered = _streamSelector.Order(candidates,
-            new StreamSelectionContext { CurrentStreamId = currentStreamId, Now = now });
+            new StreamSelectionContext { CurrentStreamId = currentStreamId, Now = now, CuratedCountry = curatedCountry });
 
         if (ordered.Count == 0)
-            return (null, []);
+            return (null, [], ordered);
 
-        var fallbacks = ordered.Skip(1).Take(4).Select(c => new FallbackStreamResult
+        var fallbacks = ordered.Skip(1).Take(4).Select(c => _outputMapper.Fill(new FallbackStreamResult
         {
             StreamId = c.StreamId,
             Url = c.StreamUri,
@@ -219,10 +238,23 @@ public class ChannelService(
             Referer = c.Referer,
             Quality = c.Quality,
             ProviderName = c.ProviderName
-        }).ToList();
+        }, c)).ToList();
 
-        return (ordered[0], fallbacks);
+        return (ordered[0], fallbacks, ordered);
     }
+
+    private ChannelStatusResult ComputeStatus(
+        IEnumerable<StreamCandidate> eligible, ChannelRegistry reg, string channelCountry)
+        => ChannelStatusRules.Compute(new ChannelStatusInput
+        {
+            CuratedCountry = reg?.CuratedCountry,
+            SourceCountry = reg?.SourceCountry,
+            ChannelCountry = channelCountry,
+            Streams = eligible
+                .Select(c => new StatusStreamInput { Type = c.Type, RequiredRegion = c.RequiredRegion })
+                .ToList(),
+            VpnHelpUrl = _outputMapper.VpnHelpUrl
+        });
 
     private static ChannelLiteProjection PickDisplayChannel(
         IEnumerable<ChannelLiteProjection> group, Dictionary<string, ProviderInfo> providers)
@@ -233,36 +265,6 @@ public class ChannelService(
 
     private static string CanonicalKey(ChannelLiteProjection c)
         => string.IsNullOrWhiteSpace(c.CanonicalId) ? c.ChannelId : c.CanonicalId;
-
-    /// <summary>
-    /// The Flutter app groups channels by the ISO <c>country</c> field, so it must never be empty
-    /// (M3U sources such as shayanline carry no tvg-country). Persian channels (iran / iran-foreign)
-    /// are reported as IR so they are grouped together for Iranian users; other curated keys map to
-    /// their ISO code; iptv-org's non-standard "UK" becomes "GB".
-    /// </summary>
-    private static string ResolveDisplayCountry(string channelCountry, ChannelRegistry reg)
-    {
-        if (reg != null)
-        {
-            if (string.Equals(reg.CuratedCountry, "iran", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(reg.CuratedCountry, "iran-foreign", StringComparison.OrdinalIgnoreCase))
-                return "IR";
-
-            if (reg.CuratedCountry?.Length == 2)
-                return NormalizeIso(reg.CuratedCountry);
-
-            if (!string.IsNullOrWhiteSpace(reg.SourceCountry))
-                return NormalizeIso(reg.SourceCountry);
-        }
-
-        return NormalizeIso(channelCountry);
-    }
-
-    private static string NormalizeIso(string country)
-    {
-        var c = (country ?? string.Empty).Trim().ToUpperInvariant();
-        return c == "UK" ? "GB" : c;
-    }
 
     #endregion
 
@@ -505,7 +507,20 @@ public class ChannelService(
                 IsHealthy = q.IsHealthy,
                 ServerProbeUnreliable = q.ServerProbeUnreliable,
                 ClientFailingUntil = q.ClientFailingUntil,
-                RecentClientFailures = q.RecentClientFailures
+                RecentClientFailures = q.RecentClientFailures,
+                Type = q.Type,
+                RequiredRegion = q.RequiredRegion,
+                RelayEligible = q.RelayEligible,
+                WebCompatible = q.WebCompatible,
+                ProbeStatus = q.ProbeStatus,
+                ProbeMoment = q.ProbeMoment,
+                PageUrl = q.PageUrl,
+                ResolveMethod = q.ResolveMethod,
+                ResolvePattern = q.ResolvePattern,
+                ResolveApiUrl = q.ResolveApiUrl,
+                ResolveHeaders = q.ResolveHeaders,
+                PlayerUrl = q.PlayerUrl,
+                Embeddable = q.Embeddable
             })
             .ToListAsync(cancellationToken);
 
