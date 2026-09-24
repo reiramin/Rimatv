@@ -90,7 +90,7 @@ public class ChannelService(
             return [];
 
         var streamsByChannel = lite.Streams.ToLookup(s => s.ChannelId);
-        var channelsByCanonical = lite.Channels.ToLookup(c => CanonicalKey(c));
+        var channelsByCanonical = lite.Channels.ToLookup(CanonicalKey);
         var now = DateTime.UtcNow;
 
         var wantedCountry = string.IsNullOrWhiteSpace(country) ? null : country.Trim();
@@ -147,7 +147,7 @@ public class ChannelService(
         var index = await _registryService.GetIndexAsync(cancellationToken);
 
         var streamsByChannel = lite.Streams.ToLookup(s => s.ChannelId);
-        var channelsByCanonical = lite.Channels.ToLookup(c => CanonicalKey(c));
+        var channelsByCanonical = lite.Channels.ToLookup(CanonicalKey);
         var now = DateTime.UtcNow;
 
         var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
