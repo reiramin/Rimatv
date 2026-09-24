@@ -49,8 +49,11 @@ public class StreamSelector : IStreamSelector, RegisterMode.ISingletonDependency
 
         // Client-failing streams decay out naturally — unless a recent deep probe says the stream
         // is alive: then the reporters' own network is blocking it (typically Iran without a VPN)
-        // and excluding it would also take it away from VPN users. Reports are still recorded.
-        if (c.ClientFailingUntil.HasValue && now < c.ClientFailingUntil.Value &&
+        // and excluding it would also take it away from VPN users. Region-locked streams are never
+        // excluded by reports: the probe (abroad) can never mark them ok, so a few diaspora/VPN
+        // users could otherwise knock IR streams out for everyone in Iran. Reports are still recorded.
+        if (c.RequiredRegion == null &&
+            c.ClientFailingUntil.HasValue && now < c.ClientFailingUntil.Value &&
             !IsProbe(c, StreamProbeStatus.Ok, ProbeWindows.ClientFailureSuppression, now))
             return false;
 
