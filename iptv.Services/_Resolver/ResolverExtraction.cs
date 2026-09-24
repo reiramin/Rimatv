@@ -113,10 +113,10 @@ public static partial class ResolverExtraction
 
     /// <summary>
     /// A token is IP-bound when the entry says so (e.g. a hashed-IP parameter found in research) or
-    /// when the resolved URL carries a literal IP address in a query parameter: a URL resolved by the
-    /// server then embeds the SERVER's egress address and will not play for the user.
+    /// when the resolved URL carries a literal IP address in a query parameter. The token was issued
+    /// to the SERVER's egress address — whatever the caller's IP is — so it will not play for the user.
     /// </summary>
-    public static bool IsIpBound(string url, bool declaredIpBound, string clientIp = null)
+    public static bool IsIpBound(string url, bool declaredIpBound)
     {
         if (declaredIpBound)
             return true;
@@ -128,9 +128,6 @@ public static partial class ResolverExtraction
         {
             if (!IPAddress.TryParse(value, out var ip) || !LooksLikeLiteral(value, ip))
                 continue;
-
-            if (clientIp != null && string.Equals(value, clientIp, StringComparison.OrdinalIgnoreCase))
-                continue;   // bound to the requesting user, not to us
 
             if (IpParamNames.Contains(key) || ip.AddressFamily == AddressFamily.InterNetwork)
                 return true;

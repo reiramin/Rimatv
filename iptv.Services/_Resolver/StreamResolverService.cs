@@ -93,7 +93,7 @@ namespace iptv.Services._Resolver
 
             // Do not hand out a token issued to OUR address: it would not play for the user. The
             // client falls back to the clientResolve / officialPlayer rungs of the same channel.
-            if (ResolverExtraction.IsIpBound(url, stream.IpBound, clientIp))
+            if (ResolverExtraction.IsIpBound(url, stream.IpBound))
                 return Failure(ResolveErrorCodes.IpBound, stream.RequiredRegion);
 
             var (playlistStatus, playlist) = await GetAsync(url, headers, ct, maxBytes: 64 * 1024);
