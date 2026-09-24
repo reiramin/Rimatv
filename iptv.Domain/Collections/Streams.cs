@@ -16,6 +16,7 @@ public class Streams : BaseDocument
     public string UserAgent { get; set; }
     public string Referer { get; set; }
 
+    // hls | youtube | resolve | direct | clientResolve | officialPlayer (see StreamTypes).
     public string Type { get; set; }
     public string? Quality { get; set; }
 
@@ -48,6 +49,38 @@ public class Streams : BaseDocument
 
     public DateTime? LastCheckedMoment { get; set; }
 
+    // --- Playability metadata (set by sync) -------------------------------------------------
+
+    // ISO country the stream only plays from (IR for Iranian CDNs / [IR] labels / registry
+    // RequiresIranianIp, the source country for Geo-blocked labels, US for Pluto), else null.
+    public string RequiredRegion { get; set; }
+
+    // Reachable abroad but possibly filtered in Iran: RequiredRegion == null, Type == hls and a
+    // non-Iranian host. Only a flag for a future, separately hosted relay.
+    public bool RelayEligible { get; set; }
+
+    // --- Deep-probe results (set by Stream/ReportProbeResultsAsync from GitHub Actions) ------
+
+    // https, no required UA/Referer, and CORS allows https://rimatv.github.io. Null = not probed yet.
+    public bool? WebCompatible { get; set; }
+
+    // ok | dead | region | unverified (see StreamProbeStatus).
+    public string ProbeStatus { get; set; }
+    public DateTime? ProbeMoment { get; set; }
+    public string ProbeRegionHint { get; set; }
+
+    // --- Official-source ladder (resolver provider, type resolve / clientResolve / officialPlayer)
+
+    public string PageUrl { get; set; }
+    public string ResolveMethod { get; set; }
+    public string ResolvePattern { get; set; }
+    public string ResolveApiUrl { get; set; }
+    public Dictionary<string, string> ResolveHeaders { get; set; }
+    public int ResolveTtlSeconds { get; set; }
+    public bool IpBound { get; set; }
+    public string PlayerUrl { get; set; }
+    public bool? Embeddable { get; set; }
+
     public string DataHash { get; set; }
 }
 
@@ -56,4 +89,24 @@ public class ClientFailureReport
     public string UserPublicKey { get; set; }
     public DateTime Moment { get; set; }
     public string Reason { get; set; }
+}
+
+public static class StreamTypes
+{
+    public const string Hls = "hls";
+    public const string Direct = "direct";
+    public const string YouTube = "youtube";
+    public const string Resolve = "resolve";
+    public const string ClientResolve = "clientResolve";
+    public const string OfficialPlayer = "officialPlayer";
+
+    public static bool IsStatic(string type) => type is null or Hls or Direct;
+}
+
+public static class StreamProbeStatus
+{
+    public const string Ok = "ok";
+    public const string Dead = "dead";
+    public const string Region = "region";
+    public const string Unverified = "unverified";
 }

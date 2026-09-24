@@ -11,6 +11,7 @@ using iptv.Services._IptvProvider.Contracts;
 using iptv.Services._IptvProvider.DTOs.Results;
 using iptv.Services._IptvSync.Contracts;
 using iptv.Services._IptvSync.DTOs.Results;
+using iptv.Services._Stream.Urls;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using Utilities.Constants;
@@ -278,7 +279,7 @@ public class IptvSyncService(
             var requiresIrByRegistry = reg?.RequiresIranianIp == true;
 
             foreach (var s in streams)
-                normalized.Add(NormalizeStream(provider, channelKey, persisted.ChannelId, s, requiresIrByRegistry));
+                normalized.Add(NormalizeStream(provider, channelKey, persisted, reg, s, requiresIrByRegistry));
         }
 
         // Stream ExternalId already includes the channel key; dedupe crash-proof.
@@ -309,7 +310,7 @@ public class IptvSyncService(
                 existingDoc.ChannelId == doc.ChannelId)
                 continue;
 
-            // Preserve IsHealthy, AdminDisabled and client-failure state on existing streams.
+            // Preserve IsHealthy, AdminDisabled, probe results and client-failure state on existing streams.
             var update = Builders<Streams>.Update
                 .Set(q => q.Name, doc.Name)
                 .Set(q => q.ChannelId, doc.ChannelId)
@@ -323,6 +324,17 @@ public class IptvSyncService(
                 .Set(q => q.Feed, doc.Feed)
                 .Set(q => q.Languages, doc.Languages)
                 .Set(q => q.ServerProbeUnreliable, doc.ServerProbeUnreliable)
+                .Set(q => q.RequiredRegion, doc.RequiredRegion)
+                .Set(q => q.RelayEligible, doc.RelayEligible)
+                .Set(q => q.PageUrl, doc.PageUrl)
+                .Set(q => q.ResolveMethod, doc.ResolveMethod)
+                .Set(q => q.ResolvePattern, doc.ResolvePattern)
+                .Set(q => q.ResolveApiUrl, doc.ResolveApiUrl)
+                .Set(q => q.ResolveHeaders, doc.ResolveHeaders)
+                .Set(q => q.ResolveTtlSeconds, doc.ResolveTtlSeconds)
+                .Set(q => q.IpBound, doc.IpBound)
+                .Set(q => q.PlayerUrl, doc.PlayerUrl)
+                .Set(q => q.Embeddable, doc.Embeddable)
                 .Set(q => q.DataHash, doc.DataHash)
                 .Set(q => q.Inactive, false)
                 .Set(q => q.ModifiedMoment, DateTime.UtcNow);
@@ -419,24 +431,37 @@ public class IptvSyncService(
     }
 
     private static Streams NormalizeStream(
-        IptvProviders provider, string channelKey, string localChannelId,
+        IptvProviders provider, string channelKey, Channels channel, ChannelRegistry reg,
         ExternalStream external, bool requiresIrByRegistry)
     {
-        var url = external.Url.Trim();
+        var rawUrl = external.Url.Trim();
+        var youTubeEmbed = YouTubeUrls.ToEmbedUrl(rawUrl);
+        var url = youTubeEmbed ?? rawUrl;   // official YouTube sources are stored as embed URLs
         var userAgent = external.UserAgent?.Trim() ?? string.Empty;
         var referer = external.Referrer?.Trim() ?? string.Empty;
         var languages = (external.Languages ?? []).Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
 
         var quality = StreamQualityParser.Parse(external.Quality);
-        var type = url.Contains(".m3u8", StringComparison.OrdinalIgnoreCase) ? "hls" : "direct";
-        var isAdaptive = external.IsAdaptive || (quality.IsAuto && type == "hls");
+        var type = external.Type
+                   ?? (youTubeEmbed != null ? StreamTypes.YouTube
+                       : url.Contains(".m3u8", StringComparison.OrdinalIgnoreCase) ? StreamTypes.Hls
+                       : StreamTypes.Direct);
+        var isAdaptive = external.IsAdaptive || (quality.IsAuto && type == StreamTypes.Hls);
 
+        var labels = external.Labels ?? [];
         var serverProbeUnreliable =
             external.RequiresIranianIp ||
             external.GeoBlocked ||
             requiresIrByRegistry ||
             IsIranianOnlyCdn(url) ||
-            external.Labels.Any(l => IsIranLabel(l) || IsGeoLabel(l));
+            labels.Any(l => IsIranLabel(l) || IsGeoLabel(l)) ||
+            !StreamTypes.IsStatic(type);   // a HEAD on a page/embed says nothing about playback
+
+        var requiredRegion = ComputeRequiredRegion(
+            provider.Kind, external, url, requiresIrByRegistry,
+            channel?.Country, reg?.SourceCountry, channel?.CanonicalId ?? channelKey);
+
+        var relayEligible = IsRelayEligible(type, requiredRegion, url);
 
         var externalId = !string.IsNullOrWhiteSpace(external.StableExternalId)
             ? external.StableExternalId
@@ -445,7 +470,7 @@ public class IptvSyncService(
         return new Streams
         {
             ProviderPublicKey = provider.PublicKey,
-            ChannelId = localChannelId,
+            ChannelId = channel?.ChannelId,
             ExternalId = externalId,
             Name = string.IsNullOrWhiteSpace(external.Title) ? $"{url} ({quality.Normalized})" : external.Title.Trim(),
             StreamUri = url,
@@ -458,18 +483,87 @@ public class IptvSyncService(
             Feed = external.Feed,
             Languages = languages,
             ServerProbeUnreliable = serverProbeUnreliable,
+            RequiredRegion = requiredRegion,
+            RelayEligible = relayEligible,
+            PageUrl = external.PageUrl,
+            ResolveMethod = external.ResolveMethod,
+            ResolvePattern = external.ResolvePattern,
+            ResolveApiUrl = external.ResolveApiUrl,
+            ResolveHeaders = external.ResolveHeaders,
+            ResolveTtlSeconds = external.ResolveTtlSeconds,
+            IpBound = external.IpBound,
+            PlayerUrl = external.PlayerUrl,
+            Embeddable = external.Embeddable,
             IsHealthy = true,   // neutral/optimistic; the health checker demotes dead streams
             DataHash = ComputeHash(url, userAgent, referer, type, quality.Normalized,
-                quality.Rank.ToString(), isAdaptive.ToString(), serverProbeUnreliable.ToString(), external.Feed ?? "")
+                quality.Rank.ToString(), isAdaptive.ToString(), serverProbeUnreliable.ToString(), external.Feed ?? "",
+                requiredRegion ?? "", relayEligible.ToString(), external.PageUrl ?? "", external.ResolveMethod ?? "",
+                external.ResolvePattern ?? "", external.ResolveApiUrl ?? "",
+                string.Join(";", (external.ResolveHeaders ?? []).OrderBy(h => h.Key).Select(h => $"{h.Key}={h.Value}")),
+                external.ResolveTtlSeconds.ToString(), external.IpBound.ToString(), external.PlayerUrl ?? "",
+                external.Embeddable?.ToString() ?? "")
         };
+    }
+
+    /// <summary>
+    /// The one country a stream plays from, or null:
+    /// explicit (resolver) → IR (Iranian CDN, [IR]/Iran label, flags, registry RequiresIranianIp)
+    /// → US for Pluto → the source country for Geo-blocked streams (channel country, then registry
+    /// SourceCountry, then the ".xx" suffix of the iptv-org id, e.g. ARD.de → DE).
+    /// </summary>
+    internal static string ComputeRequiredRegion(
+        ProviderKind providerKind, ExternalStream external, string url, bool requiresIrByRegistry,
+        string channelCountry, string registrySourceCountry, string canonicalId)
+    {
+        if (!string.IsNullOrWhiteSpace(external.RequiredRegion))
+            return NormalizeIso(external.RequiredRegion);
+
+        var labels = external.Labels ?? [];
+
+        if (external.RequiresIranianIp || requiresIrByRegistry || IsIranianOnlyCdn(url) ||
+            labels.Any(IsIranLabel))
+            return "IR";
+
+        if (providerKind == ProviderKind.Pluto)
+            return "US";   // Pluto TV streams are US-only
+
+        if (external.GeoBlocked || labels.Any(IsGeoLabel))
+            return SourceCountry(channelCountry, registrySourceCountry, canonicalId);
+
+        return null;
+    }
+
+    internal static bool IsRelayEligible(string type, string requiredRegion, string url)
+        => requiredRegion == null && type == StreamTypes.Hls && !IsIranianOnlyCdn(url);
+
+    private static string SourceCountry(string channelCountry, string registrySourceCountry, string canonicalId)
+    {
+        foreach (var candidate in new[] { channelCountry, registrySourceCountry })
+            if (candidate?.Trim().Length == 2)
+                return NormalizeIso(candidate);
+
+        // iptv-org ids end with the ISO code: "ARD.de", "TRT1.tr", "ProSieben.de@HD".
+        var id = canonicalId ?? string.Empty;
+        var at = id.IndexOf('@');
+        if (at > 0) id = id[..at];
+        var dot = id.LastIndexOf('.');
+        if (dot > 0 && id.Length - dot - 1 == 2 && id[(dot + 1)..].All(char.IsLetter))
+            return NormalizeIso(id[(dot + 1)..]);
+
+        return null;
+    }
+
+    private static string NormalizeIso(string country)
+    {
+        var c = country.Trim().ToUpperInvariant();
+        return c == "UK" ? "GB" : c;
     }
 
     #endregion
 
     #region Filters
 
-    private static readonly string[] NonPlayableMarkers =
-        ["youtube.com", "youtu.be", "twitch.tv"];
+    private static readonly string[] NonPlayableMarkers = ["twitch.tv"];
 
     /// <summary>
     /// Mass-deactivation guard (§3.8): if a fetch returns 0 items, or fewer than 50% of the
@@ -494,6 +588,11 @@ public class IptvSyncService(
 
         if (NonPlayableMarkers.Any(m => u.Contains(m, StringComparison.OrdinalIgnoreCase)))
             return false;
+
+        // Official YouTube live sources are kept as embeds (type "youtube"); a YouTube URL that
+        // cannot be expressed as an embed (e.g. an @handle page) is dropped.
+        if (YouTubeUrls.IsYouTubeHost(u))
+            return YouTubeUrls.ToEmbedUrl(u) != null;
 
         return Uri.TryCreate(u, UriKind.Absolute, out var uri) &&
                (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
@@ -531,7 +630,7 @@ public class IptvSyncService(
         return true;
     }
 
-    private static bool IsIranianOnlyCdn(string url)
+    internal static bool IsIranianOnlyCdn(string url)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
             return false;
