@@ -56,12 +56,22 @@ public static class IngestScopePolicy
             docs.Select(c => c.ChannelId).ToHashSet(StringComparer.Ordinal));
     }
 
-    public static bool IsPersianSource(IptvProviders provider, ExternalChannel channel)
+    /// <summary>
+    /// Everything from the Persian providers is always kept: shayanline, and famelack's ir file.
+    /// ONE rule for new (ExternalChannel) and persisted (Channels) documents, via the SourceTag.
+    /// </summary>
+    public static bool IsPersianSource(IptvProviders provider, string sourceTag)
     {
         if (provider?.Name?.StartsWith("shayanline", StringComparison.OrdinalIgnoreCase) == true)
             return true;
 
         return provider?.Kind == ProviderKind.FamelackJson &&
-               channel?.SourceEndpoint?.EndsWith("/ir.json", StringComparison.OrdinalIgnoreCase) == true;
+               string.Equals(sourceTag, "famelack:ir", StringComparison.OrdinalIgnoreCase);
     }
+
+    public static bool IsPersianSource(IptvProviders provider, ExternalChannel channel)
+        => IsPersianSource(provider, channel?.SourceTag);
+
+    public static bool IsPersianSource(IptvProviders provider, Channels channel)
+        => IsPersianSource(provider, channel?.SourceTag);
 }

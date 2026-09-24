@@ -255,6 +255,7 @@ public class IptvSyncService(
                 .Set(q => q.Feed, doc.Feed)
                 .Set(q => q.Languages, doc.Languages)
                 .Set(q => q.Labels, doc.Labels)
+                .Set(q => q.SourceTag, doc.SourceTag)
                 .Set(q => q.DataHash, doc.DataHash)
                 .Set(q => q.Inactive, false)                 // AdminDisabled is intentionally NOT touched
                 .Set(q => q.ModifiedMoment, DateTime.UtcNow);
@@ -458,8 +459,9 @@ public class IptvSyncService(
             Feed = external.Feed,
             Languages = languages,
             Labels = labels,
+            SourceTag = external.SourceTag,
             DataHash = ComputeHash(externalId, canonical, name, country, category, imageUri,
-                external.Feed ?? "", string.Join(",", languages))
+                external.Feed ?? "", string.Join(",", languages), external.SourceTag ?? "")
         };
     }
 

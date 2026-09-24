@@ -27,6 +27,6 @@ public class ExternalChannel
     // sync resolves it via the registry / fallback scheme.
     [JsonIgnore] public string CanonicalIdHint { get; set; }
 
-    // The endpoint (file) this channel came from, for providers with one file per country.
-    [JsonIgnore] public string SourceEndpoint { get; set; }
+    // Source file of providers with one file per country, e.g. "famelack:ir" (persisted on Channels).
+    [JsonIgnore] public string SourceTag { get; set; }
 }

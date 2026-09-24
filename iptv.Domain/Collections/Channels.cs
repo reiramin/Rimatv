@@ -23,6 +23,9 @@ public class Channels : BaseDocument
     public List<string> Languages { get; set; } = [];
     public List<string> Labels { get; set; } = [];
 
+    // Source file for providers with one file per country, e.g. "famelack:ir". Drives the ingest scope.
+    public string SourceTag { get; set; }
+
     public string CurrentStreamId { get; set; }
 
     public bool Inactive { get; set; }

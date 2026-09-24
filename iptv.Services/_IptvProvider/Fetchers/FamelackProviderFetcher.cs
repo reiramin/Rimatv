@@ -90,7 +90,7 @@ public class FamelackProviderFetcher(IHttpClientFactory httpClientFactory)
                     Categories = [],
                     Languages = c.Languages ?? [],
                     Labels = c.IsGeoBlocked ? ["Geo-blocked"] : [],
-                    SourceEndpoint = c.SourceEndpoint
+                    SourceTag = SourceTagOf(c.SourceEndpoint)
                 });
             }
 
@@ -106,5 +106,15 @@ public class FamelackProviderFetcher(IHttpClientFactory httpClientFactory)
         }
 
         return result;
+    }
+
+    /// <summary>"…/countries/ir.json" → "famelack:ir".</summary>
+    internal static string SourceTagOf(string endpoint)
+    {
+        if (string.IsNullOrWhiteSpace(endpoint))
+            return null;
+        var file = endpoint.TrimEnd('/').Split('/').Last();
+        var dot = file.LastIndexOf('.');
+        return "famelack:" + (dot > 0 ? file[..dot] : file).ToLowerInvariant();
     }
 }
