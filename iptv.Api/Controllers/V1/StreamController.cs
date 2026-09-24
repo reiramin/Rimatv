@@ -54,7 +54,10 @@ namespace iptv.Api.Controllers.V1
 
         // Anonymous, per-IP limited. Fetches the official page server-side (inbound traffic only)
         // and returns the short-lived .m3u8 — video never passes through this server.
-        [HttpGet("[action]")]
+        // Explicit "ResolveAsync" (MVC strips the Async suffix from [action]); "Resolve" matches the
+        // naming of the other routes.
+        [HttpGet("ResolveAsync")]
+        [HttpGet("Resolve")]
         [CustomRateLimit(maxAttemptsCount: 30, periodSeconds: 60)]
         [SwaggerOperation(Summary = "Resolve an official tokenized stream (type = resolve) to a playable .m3u8.",
             Tags = ["Stream"])]
