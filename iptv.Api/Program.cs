@@ -46,7 +46,8 @@ builder.Host.ConfigureContainer<ContainerBuilder>(
 var app = builder.Build();
 
 // Early: before any middleware that reads the request body (logging, AntiXss) or writes responses.
-app.UseRequestDecompression();
+// Decompression only for the signed probe endpoint (its action caps the body at 4 MB).
+app.UseWhen(RequestDecompressionScope.Applies, branch => branch.UseRequestDecompression());
 app.UseResponseCompression();
 
 if (app.Environment.IsDevelopment())

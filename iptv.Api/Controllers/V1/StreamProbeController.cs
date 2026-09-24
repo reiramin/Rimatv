@@ -22,6 +22,7 @@ namespace iptv.Api.Controllers.V1
     {
         // [IgnoreLogging]: the hourly body can be thousands of items; keep it out of RequestLogs.
         [HttpPost("ReportProbeResultsAsync")]
+        [RequestSizeLimit(4_000_000)]   // enforced on the decompressed body as well
         [IgnoreLogging]
         [CustomRateLimit(maxAttemptsCount: 20, periodSeconds: 60)]
         [SwaggerOperation(Summary = "Apply deep-probe results from the RimaTv_Data validator (signed; gzip body allowed).",
