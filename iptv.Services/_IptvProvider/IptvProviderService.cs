@@ -270,7 +270,8 @@ public class IptvProviderService(
         if (!string.IsNullOrWhiteSpace(baseUrl))
             ValidateUrl(nameof(baseUrl), baseUrl);
 
-        if (kind == ProviderKind.Pluto)
+        // Pluto has a built-in endpoint; Resolver reads an embedded resource.
+        if (kind is ProviderKind.Pluto or ProviderKind.Resolver)
         {
             if (!string.IsNullOrWhiteSpace(channelsEndpoint))
                 ValidateUrl(nameof(channelsEndpoint), channelsEndpoint);

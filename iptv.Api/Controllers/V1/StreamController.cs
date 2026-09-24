@@ -1,5 +1,7 @@
 using Asp.Versioning;
 using iptv.Api.Utilities.Filters;
+using iptv.Services._Resolver.Contracts;
+using iptv.Services._Resolver.DTOs;
 using iptv.Services._Stream.Contracts;
 using iptv.Services._Stream.DTOs.Results;
 using iptv.Services._Stream.DTOs.Updates;
@@ -20,7 +22,8 @@ namespace iptv.Api.Controllers.V1
     [ApiVersion("1")]
     [Route("api/v{version:apiVersion}/[controller]")]
     [IgnoreSignature]
-    public class StreamController(IStreamService _streamService, IReporterKeyProvider _reporterKeys)
+    public class StreamController(
+        IStreamService _streamService, IReporterKeyProvider _reporterKeys, IStreamResolverService _resolverService)
         : ApiBaseController
     {
         [HttpPost("[action]")]
@@ -48,6 +51,16 @@ namespace iptv.Api.Controllers.V1
         public async Task<StreamReportFailureResult> ReportFailureAsync(StreamReportFailureUpdate update)
             => await _streamService.ReportStreamFailureAsync(
                 update, _reporterKeys.ForIp(HttpContext.GetRequestIpv4()));
+
+        // Anonymous, per-IP limited. Fetches the official page server-side (inbound traffic only)
+        // and returns the short-lived .m3u8 — video never passes through this server.
+        [HttpGet("[action]")]
+        [CustomRateLimit(maxAttemptsCount: 30, periodSeconds: 60)]
+        [SwaggerOperation(Summary = "Resolve an official tokenized stream (type = resolve) to a playable .m3u8.",
+            Tags = ["Stream"])]
+        public async Task<StreamResolveResult> ResolveAsync([FromQuery] string streamId, CancellationToken cancellationToken)
+            => await _resolverService.ResolveAsync(
+                streamId, ReporterKey.FirstForwardedAddress(HttpContext.GetRequestIpv4()), cancellationToken);
 
         #region Admin Actions
 

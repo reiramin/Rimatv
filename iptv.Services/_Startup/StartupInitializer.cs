@@ -303,6 +303,13 @@ public class StartupInitializer(IServiceProvider _serviceProvider, ILogger<Start
             },
             new IptvProviders
             {
+                // Official-source ladder (embedded _Resolver/resolvers.json): resolve / youtube /
+                // clientResolve / officialPlayer streams for channels without public static streams.
+                Name = "resolvers", Kind = ProviderKind.Resolver, Priority = 50,
+                FetchTimeoutSeconds = 30
+            },
+            new IptvProviders
+            {
                 Name = "zapp-de", Kind = ProviderKind.ZappJson, Priority = 65,
                 ChannelsEndpoint = "https://api.zapp.mediathekview.de/v1/channelInfoList",
                 FetchTimeoutSeconds = 60

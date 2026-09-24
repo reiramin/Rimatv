@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="_ChannelRegistry\Seed\channel_registry.seed.json" />
+    <EmbeddedResource Include="_Resolver\resolvers.json" />
   </ItemGroup>
 
 </Project>

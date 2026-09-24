@@ -52,5 +52,8 @@ public enum ProviderKind
     Pluto = 1,
     M3u = 2,
     FamelackJson = 3,
-    ZappJson = 4
+    ZappJson = 4,
+
+    // Official-source ladder from the embedded iptv.Services/_Resolver/resolvers.json.
+    Resolver = 5
 }
