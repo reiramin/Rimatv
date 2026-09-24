@@ -36,6 +36,10 @@ public class AllChannelWithStreamResult : StreamOutputFields
 
     public List<FallbackStreamResult> FallbackStreams { get; set; } = [];
 
+    // Ladder winner; CurrentStreamUrl and the flattened stream fields describe the first hls/direct
+    // stream only (null when none).
+    public FallbackStreamResult Playback { get; set; }
+
     // Channel-level playability (§2.2).
     public string Status { get; set; }
     public List<string> RequiredRegions { get; set; } = [];

@@ -61,8 +61,9 @@ public class ChannelService(
 
             var display = PickDisplayChannel(group, lite.Providers);
             var status = ComputeStatus(selection.Eligible, reg, display.Country);
+            var current = selection.Current;
 
-            result.Add(_outputMapper.Fill(new AllChannelWithStreamResult
+            result.Add(FillCurrent(new AllChannelWithStreamResult
             {
                 ChannelId = display.ChannelId,
                 CanonicalId = group.Key,
@@ -72,12 +73,13 @@ public class ChannelService(
                 ImageUri = display.ImageUri,
                 Country = status.Country,
                 Category = reg?.Categories?.FirstOrDefault() ?? display.Category,
-                CurrentStreamUrl = selection.Winner.StreamUri,
-                StreamId = selection.Winner.StreamId,
-                StreamUserAgent = selection.Winner.UserAgent,
-                StreamReferer = selection.Winner.Referer,
-                StreamQuality = selection.Winner.Quality,
-                ProviderName = selection.Winner.ProviderName,
+                CurrentStreamUrl = current?.StreamUri,
+                StreamId = current?.StreamId,
+                StreamUserAgent = current?.UserAgent,
+                StreamReferer = current?.Referer,
+                StreamQuality = current?.Quality,
+                ProviderName = current?.ProviderName,
+                Playback = selection.Playback,
                 FallbackStreams = selection.Fallbacks,
                 Status = status.Status,
                 RequiredRegions = status.RequiredRegions,
@@ -85,7 +87,7 @@ public class ChannelService(
                 Message = status.Message,
                 MessageFa = status.MessageFa,
                 VpnHelpUrl = status.VpnHelpUrl
-            }, selection.Winner));
+            }, current));
         }
 
         return ApplyPaging(result.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase), country, page, size);
@@ -145,8 +147,9 @@ public class ChannelService(
 
             var display = PickDisplayChannel(group, lite.Providers);
             var status = ComputeStatus(selection.Eligible, entry, display.Country);
+            var current = selection.Current;
 
-            result.Add(_outputMapper.Fill(new ChannelWithStreamResult
+            result.Add(FillCurrent(new ChannelWithStreamResult
             {
                 ChannelId = display.ChannelId,
                 CanonicalId = entry.CanonicalId,
@@ -156,11 +159,12 @@ public class ChannelService(
                 ImageUri = display.ImageUri,
                 Country = status.Country,
                 Category = entry.Categories?.FirstOrDefault() ?? display.Category,
-                CurrentStreamUrl = selection.Winner.StreamUri,
-                StreamId = selection.Winner.StreamId,
-                UserAgent = selection.Winner.UserAgent,
-                Referer = selection.Winner.Referer,
-                Quality = selection.Winner.Quality,
+                CurrentStreamUrl = current?.StreamUri,
+                StreamId = current?.StreamId,
+                UserAgent = current?.UserAgent,
+                Referer = current?.Referer,
+                Quality = current?.Quality,
+                Playback = selection.Playback,
                 FallbackStreams = selection.Fallbacks,
                 Inactive = false,
                 Status = status.Status,
@@ -169,7 +173,7 @@ public class ChannelService(
                 Message = status.Message,
                 MessageFa = status.MessageFa,
                 VpnHelpUrl = status.VpnHelpUrl
-            }, selection.Winner));
+            }, current));
         }
 
         return result;
@@ -217,8 +221,18 @@ public class ChannelService(
 
     #region Selection helpers
 
-    private (StreamCandidate Winner, List<FallbackStreamResult> Fallbacks, IReadOnlyList<StreamCandidate> Eligible)
-        SelectForCanonical(
+    private sealed record Selection(
+        StreamCandidate Winner,
+        StreamCandidate Current,
+        FallbackStreamResult Playback,
+        List<FallbackStreamResult> Fallbacks,
+        IReadOnlyList<StreamCandidate> Eligible);
+
+    // Legacy stream fields describe the first hls/direct candidate only (or stay empty).
+    private T FillCurrent<T>(T target, StreamCandidate current) where T : StreamOutputFields
+        => current == null ? target : _outputMapper.Fill(target, current);
+
+    private Selection SelectForCanonical(
             IEnumerable<ChannelLiteProjection> group,
             ILookup<string, Streams> streamsByChannel,
             Dictionary<string, ProviderInfo> providers,
@@ -246,9 +260,18 @@ public class ChannelService(
             new StreamSelectionContext { CurrentStreamId = currentStreamId, Now = now, CuratedCountry = curatedCountry });
 
         if (ordered.Count == 0)
-            return (null, [], ordered);
+            return new Selection(null, null, null, [], ordered);
 
-        var fallbacks = ordered.Skip(1).Take(4).Select(c => _outputMapper.Fill(new FallbackStreamResult
+        return new Selection(
+            ordered[0],
+            PlaybackSelection.PickCurrentStream(ordered),
+            ToStreamResult(ordered[0]),
+            ordered.Skip(1).Take(4).Select(ToStreamResult).ToList(),
+            ordered);
+    }
+
+    private FallbackStreamResult ToStreamResult(StreamCandidate c)
+        => _outputMapper.Fill(new FallbackStreamResult
         {
             StreamId = c.StreamId,
             Url = c.StreamUri,
@@ -256,10 +279,7 @@ public class ChannelService(
             Referer = c.Referer,
             Quality = c.Quality,
             ProviderName = c.ProviderName
-        }, c)).ToList();
-
-        return (ordered[0], fallbacks, ordered);
-    }
+        }, c);
 
     private ChannelStatusResult ComputeStatus(
         IEnumerable<StreamCandidate> eligible, ChannelRegistry reg, string channelCountry)

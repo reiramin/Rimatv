@@ -52,24 +52,34 @@ public class ChannelWithStreamResultJsonConverter : JsonConverter<ChannelWithStr
         if (value.MessageFa != null) writer.WriteString("messageFa", value.MessageFa);
         if (value.VpnHelpUrl != null) writer.WriteString("vpnHelpUrl", value.VpnHelpUrl);
 
+        // Ladder winner (the next app version plays this; the current one ignores it).
+        if (value.Playback != null)
+        {
+            writer.WritePropertyName("playback");
+            WriteStream(writer, value.Playback);
+        }
+
         writer.WritePropertyName("fallbackStreams");
         writer.WriteStartArray();
         foreach (var f in value.FallbackStreams ?? [])
-        {
-            writer.WriteStartObject();
-            writer.WriteString("streamId", f.StreamId);
-            writer.WriteString("url", f.Url);
-            if (f.UserAgent != null) writer.WriteString("userAgent", f.UserAgent);
-            if (f.Referer != null) writer.WriteString("referer", f.Referer);
-            if (f.Quality != null) writer.WriteString("quality", f.Quality);
-            if (f.ProviderName != null) writer.WriteString("providerName", f.ProviderName);
-            WriteStreamFields(writer, f);
-            writer.WriteEndObject();
-        }
+            WriteStream(writer, f);
         writer.WriteEndArray();
 
         writer.WriteBoolean("inactive", value.Inactive);
 
+        writer.WriteEndObject();
+    }
+
+    private static void WriteStream(Utf8JsonWriter writer, FallbackStreamResult f)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("streamId", f.StreamId);
+        writer.WriteString("url", f.Url);
+        if (f.UserAgent != null) writer.WriteString("userAgent", f.UserAgent);
+        if (f.Referer != null) writer.WriteString("referer", f.Referer);
+        if (f.Quality != null) writer.WriteString("quality", f.Quality);
+        if (f.ProviderName != null) writer.WriteString("providerName", f.ProviderName);
+        WriteStreamFields(writer, f);
         writer.WriteEndObject();
     }
 
