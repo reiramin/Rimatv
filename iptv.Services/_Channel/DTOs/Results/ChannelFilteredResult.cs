@@ -38,7 +38,16 @@ public class ChannelWithStreamResult
     public string Country { get; set; }
     public string Category { get; set; }
     public string? CurrentStreamUrl { get; set; }
-    
+
     public bool Inactive { get; set; }
 
+    // Additive fields (§5.2). Serialized by ChannelWithStreamResultJsonConverter.
+    public string StreamId { get; set; }
+    public string UserAgent { get; set; }
+    public string Referer { get; set; }
+    public string Quality { get; set; }
+    public string CanonicalId { get; set; }
+    public string NameFa { get; set; }
+    public string CuratedCountry { get; set; }
+    public List<FallbackStreamResult> FallbackStreams { get; set; } = [];
 }

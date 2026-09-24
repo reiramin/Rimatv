@@ -8,6 +8,11 @@ namespace iptv.Services._IptvProvider.Contracts;
 
 public interface IIptvProviderService
 {
+    // Single combined fetch (channels + streams + logos + blocklist) via the resolved fetcher.
+    Task<ProviderFetchResult> FetchAllAsync(
+        IptvProviders provider,
+        CancellationToken cancellationToken);
+
     Task<List<ExternalChannel>> FetchChannelsAsync(
         IptvProviders provider,
         CancellationToken cancellationToken);

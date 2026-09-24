@@ -23,11 +23,19 @@ namespace iptv.Api.Controllers.V1
     {
         [HttpGet("[action]")]
         [CustomRateLimit]
-        [SwaggerOperation(Summary = "Get only curated whitelist channels, deduplicated across providers.",
+        [SwaggerOperation(Summary = "Get curated (registry-driven) channels, deduplicated across providers.",
             Tags = ["Channel"])]
         public async Task<List<ChannelWithStreamResult>> GetCuratedListWithStreamAsync(
+            [FromQuery] string country, CancellationToken cancellationToken)
+            => await _channelService.GetCuratedListWithStreamAsync(country, cancellationToken);
+
+        [HttpGet("[action]")]
+        [CustomRateLimit]
+        [SwaggerOperation(Summary = "Get curated country keys with channel counts and display names.",
+            Tags = ["Channel"])]
+        public async Task<List<CuratedCountryResult>> GetCuratedCountriesAsync(
             CancellationToken cancellationToken)
-            => await _channelService.GetCuratedListWithStreamAsync(cancellationToken);
+            => await _channelService.GetCuratedCountriesAsync(cancellationToken);
 
         [HttpGet("[action]")]
         [SwaggerOperation(

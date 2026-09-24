@@ -11,9 +11,12 @@ public interface IChannelService
     Task<MonjoFilteredResult<ChannelBasicResult>> GetAllAsync(MonjoQuery query);
 
     Task<List<ChannelWithStreamResult>> GetCuratedListWithStreamAsync(
-        CancellationToken cancellationToken = default);
+        string country = null, CancellationToken cancellationToken = default);
 
     Task<List<AllChannelWithStreamResult>> GetAllUnpagedWithStreamAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<List<CuratedCountryResult>> GetCuratedCountriesAsync(
         CancellationToken cancellationToken = default);
     
     Task<MonjoFilteredResult<ChannelBasicResult>>

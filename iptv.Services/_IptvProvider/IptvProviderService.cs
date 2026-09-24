@@ -1,12 +1,16 @@
+using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using iptv.Domain.Collections;
 using iptv.Domain.Repositories.Contracts;
+using iptv.Services._Channel;
 using iptv.Services._IptvProvider.Contracts;
 using iptv.Services._IptvProvider.DTOs.Results;
+using iptv.Services._IptvProvider.DTOs.Settings;
 using iptv.Services._IptvProvider.DTOs.Updates;
+using iptv.Services._IptvProvider.Fetchers;
 using MongoDB.Driver;
 using MongoDB.Driver.Linq;
-using System.Net.Http.Json;
-using iptv.Services._IptvProvider.DTOs.Settings;
 using Utilities.Constants;
 using Utilities.Exceptions.Common;
 using Utilities.Models.Updates;
@@ -17,50 +21,36 @@ namespace iptv.Services._IptvProvider;
 
 public class IptvProviderService(
     IIptvProviderRepository _iptvProviderRepository,
-    IHttpClientFactory _httpClientFactory)
+    IHttpClientFactory _httpClientFactory,
+    IEnumerable<IProviderFetcher> _fetchers,
+    IChannelRepository _channelRepository,
+    IStreamRepository _streamRepository)
     : IIptvProviderService, RegisterMode.IScopedDependency
 {
-    public async Task<List<ExternalChannel>> FetchChannelsAsync(
-        IptvProviders provider,
-        CancellationToken cancellationToken)
-    {
-        using var httpClient = CreateHttpClient(provider);
-
-        return provider.Kind switch
-        {
-            ProviderKind.Pluto => await FetchPlutoChannelsAsync(httpClient, provider, cancellationToken),
-            _ => await FetchGenericChannelsAsync(httpClient, provider, cancellationToken)
-        };
-    }
-
-    public async Task<List<ExternalStream>> FetchStreamsAsync(
-        IptvProviders provider,
-        CancellationToken cancellationToken)
+    public async Task<ProviderFetchResult> FetchAllAsync(
+        IptvProviders provider, CancellationToken cancellationToken)
     {
         if (provider.Kind == ProviderKind.Pluto)
-            return await FetchPlutoStreamsAsync(provider, cancellationToken);
+            return await BuildPlutoResultAsync(provider, cancellationToken);
 
-        if (string.IsNullOrWhiteSpace(provider.StreamsEndpoint))
-            return [];
+        var fetcher = _fetchers.FirstOrDefault(f => f.Kind == provider.Kind)
+                      ?? throw new BadRequestException(
+                          $"No fetcher is registered for provider kind '{provider.Kind}'.");
 
-        using var httpClient = CreateHttpClient(provider);
-
-        return await FetchLargeJsonAsync<ExternalStream>(
-            httpClient, provider, provider.StreamsEndpoint, cancellationToken);
+        return await fetcher.FetchAsync(provider, cancellationToken);
     }
+
+    public async Task<List<ExternalChannel>> FetchChannelsAsync(
+        IptvProviders provider, CancellationToken cancellationToken)
+        => (await FetchAllAsync(provider, cancellationToken)).Channels;
+
+    public async Task<List<ExternalStream>> FetchStreamsAsync(
+        IptvProviders provider, CancellationToken cancellationToken)
+        => (await FetchAllAsync(provider, cancellationToken)).Streams;
 
     public async Task<List<ExternalLogo>> FetchLogosAsync(
-        IptvProviders provider,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(provider.LogosEndpoint))
-            return [];
-
-        using var httpClient = CreateHttpClient(provider);
-
-        return await FetchLargeJsonAsync<ExternalLogo>(
-            httpClient, provider, provider.LogosEndpoint, cancellationToken);
-    }
+        IptvProviders provider, CancellationToken cancellationToken)
+        => (await FetchAllAsync(provider, cancellationToken)).Logos;
 
     public async Task<List<IptvProviders>> GetActiveProvidersAsync(
         CancellationToken cancellationToken = default)
@@ -71,16 +61,14 @@ public class IptvProviderService(
     public async Task<IptvProviderFilteredResult> CreateAsync(
         IptvProviderCreateUpdate update)
     {
-        ValidateProviderConfiguration(update);
+        ValidateProviderConfiguration(update.Kind, update.ChannelsEndpoint, update.BaseUrl);
+        ValidateEndpoints(update.StreamsEndpoint, update.LogosEndpoint, update.FeedsEndpoint,
+            update.BlocklistEndpoint, update.FallbackBaseUrl, update.AdditionalEndpoints);
+
         if (await _iptvProviderRepository.AsQueryable()
-                .AnyAsync(q => q.Name == update.Name && q.BaseUrl == update.BaseUrl))
+                .AnyAsync(q => q.Name == update.Name))
             throw new BadRequestException(
                 "An IPTV provider with this name already exists.");
-
-        ValidateUrl(nameof(update.BaseUrl), update.BaseUrl);
-        ValidateUrl(nameof(update.ChannelsEndpoint), update.ChannelsEndpoint);
-        ValidateUrl(nameof(update.StreamsEndpoint), update.StreamsEndpoint, isRequired: false);
-        ValidateUrl(nameof(update.LogosEndpoint), update.LogosEndpoint, isRequired: false);
 
         var provider = new IptvProviders
         {
@@ -89,10 +77,16 @@ public class IptvProviderService(
             ChannelsEndpoint = update.ChannelsEndpoint,
             StreamsEndpoint = update.StreamsEndpoint,
             LogosEndpoint = update.LogosEndpoint,
+            FeedsEndpoint = update.FeedsEndpoint,
+            BlocklistEndpoint = update.BlocklistEndpoint,
+            FallbackBaseUrl = update.FallbackBaseUrl,
+            AdditionalEndpoints = update.AdditionalEndpoints ?? [],
+            Headers = update.Headers ?? [],
             ApiKey = update.ApiKey,
             Inactive = update.Inactive,
             Kind = update.Kind,
-            // UseProxy = update.UseProxy
+            FetchTimeoutSeconds = update.FetchTimeoutSeconds,
+            Priority = update.Priority
         };
 
         await _iptvProviderRepository.InsertOneAsync(provider);
@@ -104,88 +98,69 @@ public class IptvProviderService(
         IptvProviderEditUpdate update)
     {
         var provider =
-            await _iptvProviderRepository.GetByPublicKeyAsync(
-                update.PublicKey)
-            ?? throw new NotFoundException(
-                "IPTV provider not found.");
+            await _iptvProviderRepository.GetByPublicKeyAsync(update.PublicKey)
+            ?? throw new NotFoundException("IPTV provider not found.");
 
-        if (await _iptvProviderRepository
-                .AsQueryable()
-                .AnyAsync(q =>
-                    q.Name == update.Name &&
-                    q.PublicKey != update.PublicKey))
-        {
+        if (await _iptvProviderRepository.AsQueryable()
+                .AnyAsync(q => q.Name == update.Name && q.PublicKey != update.PublicKey))
             throw new BadRequestException(
                 "An IPTV provider with this name already exists.");
-        }
 
         provider.Name = update.Name;
+        provider.Kind = update.Kind;
+        provider.FetchTimeoutSeconds = update.FetchTimeoutSeconds;
+        provider.Priority = update.Priority;
 
         if (!string.IsNullOrWhiteSpace(update.BaseUrl))
         {
-            ValidateUrl(
-                nameof(update.BaseUrl),
-                update.BaseUrl);
-
+            ValidateUrl(nameof(update.BaseUrl), update.BaseUrl);
             provider.BaseUrl = update.BaseUrl;
         }
 
         if (!string.IsNullOrWhiteSpace(update.ChannelsEndpoint))
         {
-            ValidateUrl(
-                nameof(update.ChannelsEndpoint),
-                update.ChannelsEndpoint);
-
-            provider.ChannelsEndpoint =
-                update.ChannelsEndpoint;
+            ValidateChannelsEndpoint(update.Kind, update.ChannelsEndpoint);
+            provider.ChannelsEndpoint = update.ChannelsEndpoint;
         }
 
-        if (!string.IsNullOrWhiteSpace(update.StreamsEndpoint))
+        ApplyOptionalUrl(update.StreamsEndpoint, v => provider.StreamsEndpoint = v);
+        ApplyOptionalUrl(update.LogosEndpoint, v => provider.LogosEndpoint = v);
+        ApplyOptionalUrl(update.FeedsEndpoint, v => provider.FeedsEndpoint = v);
+        ApplyOptionalUrl(update.BlocklistEndpoint, v => provider.BlocklistEndpoint = v);
+        ApplyOptionalUrl(update.FallbackBaseUrl, v => provider.FallbackBaseUrl = v);
+
+        if (update.AdditionalEndpoints != null)
         {
-            ValidateUrl(
-                nameof(update.StreamsEndpoint),
-                update.StreamsEndpoint);
-
-            provider.StreamsEndpoint =
-                update.StreamsEndpoint;
-        }
-        else if (provider.Kind == ProviderKind.Generic)
-        {
-            provider.StreamsEndpoint = string.Empty;
+            foreach (var e in update.AdditionalEndpoints.Where(e => !string.IsNullOrWhiteSpace(e)))
+                ValidateUrl(nameof(update.AdditionalEndpoints), e);
+            provider.AdditionalEndpoints = update.AdditionalEndpoints;
         }
 
-        if (!string.IsNullOrWhiteSpace(update.LogosEndpoint))
-        {
-            ValidateUrl(
-                nameof(update.LogosEndpoint),
-                update.LogosEndpoint);
-
-            provider.LogosEndpoint =
-                update.LogosEndpoint;
-        }
-        else if (provider.Kind == ProviderKind.Generic)
-        {
-            provider.LogosEndpoint = string.Empty;
-        }
+        if (update.Headers != null)
+            provider.Headers = update.Headers;
 
         if (!string.IsNullOrWhiteSpace(update.ApiKey))
-        {
             provider.ApiKey = update.ApiKey;
-        }
 
+        var wasInactive = provider.Inactive;
         provider.Inactive = update.Inactive;
 
-        await _iptvProviderRepository
-            .ReplaceOneAsync(provider);
+        await _iptvProviderRepository.ReplaceOneAsync(provider);
+
+        // Editing the active state cascades to channels/streams.
+        if (wasInactive != provider.Inactive)
+            await CascadeProviderActiveStateAsync(provider.PublicKey, !provider.Inactive,
+                CancellationToken.None);
 
         return MapToResult(provider);
     }
 
-
     public async Task<IptvProviderFilteredResult> GetByPublicKeyAsync(GetGlobalIdUpdate publicKey)
     {
         var provider =
-            await _iptvProviderRepository.GetByPublicKeyAsync(publicKey.Id);
+            await _iptvProviderRepository.GetByPublicKeyAsync(publicKey.Id)
+            ?? throw new NotFoundException("IPTV provider not found.");
+
         return MapToResult(provider);
     }
 
@@ -206,6 +181,13 @@ public class IptvProviderService(
                 ChannelsEndpoint = provider.ChannelsEndpoint,
                 StreamsEndpoint = provider.StreamsEndpoint,
                 LogosEndpoint = provider.LogosEndpoint,
+                FeedsEndpoint = provider.FeedsEndpoint,
+                BlocklistEndpoint = provider.BlocklistEndpoint,
+                FallbackBaseUrl = provider.FallbackBaseUrl,
+                AdditionalEndpoints = provider.AdditionalEndpoints,
+                Kind = provider.Kind,
+                FetchTimeoutSeconds = provider.FetchTimeoutSeconds,
+                Priority = provider.Priority,
                 Inactive = provider.Inactive,
                 LastSyncMoment = provider.LastSyncMoment,
                 LastSyncStatus = provider.LastSyncStatus,
@@ -218,11 +200,11 @@ public class IptvProviderService(
     }
 
     public async Task<IptvProviderFilteredResult> ActivateAsync(
-        string publicKey,
-        bool shouldActivate)
+        string publicKey, bool shouldActivate)
     {
         var provider =
-            await _iptvProviderRepository.GetByPublicKeyAsync(publicKey);
+            await _iptvProviderRepository.GetByPublicKeyAsync(publicKey)
+            ?? throw new NotFoundException("IPTV provider not found.");
 
         provider.Inactive = !shouldActivate;
 
@@ -230,9 +212,10 @@ public class IptvProviderService(
             .Set(q => q.Inactive, provider.Inactive);
 
         await _iptvProviderRepository.FindOneAndUpdateAsync(
-            q => q.PublicKey == publicKey,
-            update,
-            CancellationToken.None);
+            q => q.PublicKey == publicKey, update, CancellationToken.None);
+
+        // Deactivating hides the provider's channels/streams from user-facing results; re-activating restores.
+        await CascadeProviderActiveStateAsync(publicKey, shouldActivate, CancellationToken.None);
 
         return MapToResult(provider);
     }
@@ -240,41 +223,97 @@ public class IptvProviderService(
     public async Task<string> DeleteAsync(string publicKey)
     {
         var provider =
-            await _iptvProviderRepository.GetByPublicKeyAsync(publicKey);
+            await _iptvProviderRepository.GetByPublicKeyAsync(publicKey)
+            ?? throw new NotFoundException("IPTV provider not found.");
 
+        // Deleting a provider deletes its channels and streams (soft delete via repository).
+        await _streamRepository.DeleteManyAsync(q => q.ProviderPublicKey == provider.PublicKey);
+        await _channelRepository.DeleteManyAsync(q => q.ProviderPublicKey == provider.PublicKey);
         await _iptvProviderRepository.DeleteOneAsync(q => q.PublicKey == provider.PublicKey);
+
+        ChannelService.InvalidateSharedLiteCache();
 
         return provider.PublicKey;
     }
 
-    #region Private Methods
+    #region Cascade
 
-    private static readonly System.Text.Json.JsonSerializerOptions ExternalJsonOptions = new()
+    private async Task CascadeProviderActiveStateAsync(
+        string providerPublicKey, bool shouldActivate, CancellationToken cancellationToken)
     {
-        PropertyNameCaseInsensitive = true
-    };
+        var inactive = !shouldActivate;
+
+        var channelUpdate = Builders<Channels>.Update
+            .Set(q => q.Inactive, inactive)
+            .Set(q => q.ModifiedMoment, DateTime.UtcNow);
+
+        await _channelRepository.UpdateManyAsync(
+            q => q.ProviderPublicKey == providerPublicKey, channelUpdate, cancellationToken);
+
+        var streamUpdate = Builders<Streams>.Update
+            .Set(q => q.Inactive, inactive)
+            .Set(q => q.ModifiedMoment, DateTime.UtcNow);
+
+        await _streamRepository.UpdateManyAsync(
+            q => q.ProviderPublicKey == providerPublicKey, streamUpdate, cancellationToken);
+
+        ChannelService.InvalidateSharedLiteCache();
+    }
+
+    #endregion
+
+    #region Validation
 
     private static void ValidateProviderConfiguration(
-        IptvProviderCreateUpdate update)
+        ProviderKind kind, string channelsEndpoint, string baseUrl)
     {
-        if (update.Kind == ProviderKind.Pluto)
+        if (!string.IsNullOrWhiteSpace(baseUrl))
+            ValidateUrl(nameof(baseUrl), baseUrl);
+
+        if (kind == ProviderKind.Pluto)
         {
+            if (!string.IsNullOrWhiteSpace(channelsEndpoint))
+                ValidateUrl(nameof(channelsEndpoint), channelsEndpoint);
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(update.ChannelsEndpoint))
-        {
-            throw new BadRequestException(
-                "ChannelsEndpoint is required for Generic providers.");
-        }
+        if (string.IsNullOrWhiteSpace(channelsEndpoint))
+            throw new BadRequestException("ChannelsEndpoint is required for this provider kind.");
 
-        if (update.ChannelsEndpoint.Contains(
-                ".m3u8",
-                StringComparison.OrdinalIgnoreCase))
-        {
+        ValidateChannelsEndpoint(kind, channelsEndpoint);
+    }
+
+    private static void ValidateChannelsEndpoint(ProviderKind kind, string channelsEndpoint)
+    {
+        ValidateUrl(nameof(channelsEndpoint), channelsEndpoint);
+
+        // M3U providers legitimately point at .m3u / .m3u8 playlists; other JSON kinds must not.
+        if (kind is not ProviderKind.M3u &&
+            channelsEndpoint.Contains(".m3u8", StringComparison.OrdinalIgnoreCase))
             throw new BadRequestException(
-                "Generic provider ChannelsEndpoint cannot be an M3U8 stream URL.");
-        }
+                $"A {kind} provider ChannelsEndpoint cannot be an M3U8 stream URL.");
+    }
+
+    private static void ValidateEndpoints(
+        string streams, string logos, string feeds, string blocklist,
+        string fallbackBaseUrl, List<string> additional)
+    {
+        ValidateUrl(nameof(streams), streams, isRequired: false);
+        ValidateUrl(nameof(logos), logos, isRequired: false);
+        ValidateUrl(nameof(feeds), feeds, isRequired: false);
+        ValidateUrl(nameof(blocklist), blocklist, isRequired: false);
+        ValidateUrl(nameof(fallbackBaseUrl), fallbackBaseUrl, isRequired: false);
+
+        if (additional == null) return;
+        foreach (var e in additional.Where(e => !string.IsNullOrWhiteSpace(e)))
+            ValidateUrl(nameof(additional), e);
+    }
+
+    private static void ApplyOptionalUrl(string value, Action<string> assign)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return;
+        ValidateUrl("endpoint", value);
+        assign(value);
     }
 
     private static void ValidateUrl(string fieldName, string value, bool isRequired = true)
@@ -288,94 +327,33 @@ public class IptvProviderService(
 
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||
             (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
-        {
             throw new BadRequestException(
                 $"{fieldName} is not a valid absolute URL (must start with http:// or https://): '{value}'");
-        }
     }
 
-    private static async Task<List<ExternalChannel>> FetchGenericChannelsAsync(
-        HttpClient httpClient, IptvProviders provider, CancellationToken cancellationToken)
-    {
-        const int maxAttempts = 3;
-        Exception lastError = null;
+    #endregion
 
-        var timeoutSeconds = provider.FetchTimeoutSeconds > 0
-            ? provider.FetchTimeoutSeconds
-            : 60;
-
-        for (var attempt = 1; attempt <= maxAttempts; attempt++)
-        {
-            try
-            {
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                cts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
-
-                var channels = await httpClient.GetFromJsonAsync<List<ExternalChannel>>(
-                    provider.ChannelsEndpoint, ExternalJsonOptions, cts.Token);
-
-                return channels ?? [];
-            }
-            catch (Exception ex) when (attempt < maxAttempts)
-            {
-                lastError = ex;
-                await Task.Delay(TimeSpan.FromSeconds(attempt * 5), cancellationToken);
-            }
-        }
-
-        throw lastError!;
-    }
-
-    private static async Task<List<T>> FetchLargeJsonAsync<T>(
-        HttpClient httpClient,
-        IptvProviders provider,
-        string url,
-        CancellationToken cancellationToken)
-    {
-        using var requestCts = provider.FetchTimeoutSeconds > 0
-            ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
-            : null;
-
-        if (requestCts != null)
-            requestCts.CancelAfter(TimeSpan.FromSeconds(provider.FetchTimeoutSeconds));
-
-        var effectiveToken = requestCts?.Token ?? cancellationToken;
-
-        using var response = await httpClient.GetAsync(
-            url, HttpCompletionOption.ResponseHeadersRead, effectiveToken);
-
-        response.EnsureSuccessStatusCode();
-
-        await using var stream = await response.Content.ReadAsStreamAsync(effectiveToken);
-
-        var result = await System.Text.Json.JsonSerializer.DeserializeAsync<List<T>>(
-            stream, ExternalJsonOptions, effectiveToken);
-
-        return result ?? [];
-    }
+    #region Helpers
 
     private HttpClient CreateHttpClient(IptvProviders provider)
     {
-        // var clientName = provider.UseProxy ? "IptvProvider-Proxied" : "IptvProvider";
         var httpClient = _httpClientFactory.CreateClient("IptvProvider");
 
         if (!string.IsNullOrWhiteSpace(provider.BaseUrl))
             httpClient.BaseAddress = new Uri(provider.BaseUrl);
 
         if (!string.IsNullOrWhiteSpace(provider.ApiKey))
-            httpClient.DefaultRequestHeaders.Add("X-Api-Key", provider.ApiKey);
+            httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-Api-Key", provider.ApiKey);
 
         if (!httpClient.DefaultRequestHeaders.Contains("User-Agent"))
-            httpClient.DefaultRequestHeaders.Add("User-Agent",
+            httpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent",
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
 
         return httpClient;
     }
 
-    private static IptvProviderFilteredResult MapToResult(
-        IptvProviders provider)
-    {
-        return new IptvProviderFilteredResult
+    private static IptvProviderFilteredResult MapToResult(IptvProviders provider)
+        => new()
         {
             PublicKey = provider.PublicKey,
             Name = provider.Name,
@@ -383,6 +361,13 @@ public class IptvProviderService(
             ChannelsEndpoint = provider.ChannelsEndpoint,
             StreamsEndpoint = provider.StreamsEndpoint,
             LogosEndpoint = provider.LogosEndpoint,
+            FeedsEndpoint = provider.FeedsEndpoint,
+            BlocklistEndpoint = provider.BlocklistEndpoint,
+            FallbackBaseUrl = provider.FallbackBaseUrl,
+            AdditionalEndpoints = provider.AdditionalEndpoints,
+            Kind = provider.Kind,
+            FetchTimeoutSeconds = provider.FetchTimeoutSeconds,
+            Priority = provider.Priority,
             Inactive = provider.Inactive,
             LastSyncMoment = provider.LastSyncMoment,
             LastSyncStatus = provider.LastSyncStatus,
@@ -391,11 +376,10 @@ public class IptvProviderService(
             ModifiedByInfo = provider.ModifiedByInfo,
             ModifiedMoment = provider.ModifiedMoment
         };
-    }
 
     #endregion
 
-    #region Private Methods - Pluto
+    #region Pluto (cache MUST NOT be modified — hard rule)
 
     private static readonly Dictionary<
             string,
@@ -416,25 +400,20 @@ public class IptvProviderService(
 
         try
         {
-            if (_plutoCache.TryGetValue(
-                    provider.PublicKey,
-                    out var cached)
+            if (_plutoCache.TryGetValue(provider.PublicKey, out var cached)
                 && DateTime.UtcNow - cached.FetchedAt < PlutoCacheTtl)
             {
                 return cached.Data;
             }
 
-            using var httpClient =
-                CreateHttpClient(provider);
+            using var httpClient = CreateHttpClient(provider);
 
             var raw =
                 await httpClient.GetFromJsonAsync<List<PlutoChannel>>(
-                    provider.ChannelsEndpoint,
-                    cancellationToken)
+                    provider.ChannelsEndpoint, cancellationToken)
                 ?? [];
 
-            _plutoCache[provider.PublicKey] =
-                (DateTime.UtcNow, raw);
+            _plutoCache[provider.PublicKey] = (DateTime.UtcNow, raw);
 
             return raw;
         }
@@ -444,330 +423,91 @@ public class IptvProviderService(
         }
     }
 
-    private async Task<List<ExternalChannel>>
-        FetchPlutoChannelsAsync(
-            HttpClient httpClient,
-            IptvProviders provider,
-            CancellationToken cancellationToken)
+    private async Task<ProviderFetchResult> BuildPlutoResultAsync(
+        IptvProviders provider, CancellationToken cancellationToken)
     {
-        var raw =
-            await FetchPlutoRawAsync(
-                provider,
-                cancellationToken);
+        var raw = await FetchPlutoRawAsync(provider, cancellationToken);
 
-        return raw
-            .Where(c =>
-                !string.IsNullOrWhiteSpace(c.Id)
-                && !string.IsNullOrWhiteSpace(c.Name))
-            .Select(c => new ExternalChannel
-            {
-                Id = c.Id,
-                Name = c.Name,
-                Logo = c.Logo?.Path,
-                Categories =
-                    string.IsNullOrWhiteSpace(c.Category)
-                        ? []
-                        : [c.Category],
-                Country = "US"
-            })
-            .ToList();
-    }
+        var result = new ProviderFetchResult();
 
-    private async Task<List<ExternalStream>>
-        FetchPlutoStreamsAsync(
-            IptvProviders provider,
-            CancellationToken cancellationToken)
-    {
-        var raw =
-            await FetchPlutoRawAsync(
-                provider,
-                cancellationToken);
-
-        using var httpClient =
-            CreateHttpClient(provider);
-
-        var streams = new List<ExternalStream>();
+        // A single UUID reused for every channel in this sync (stable per sync).
+        var deviceId = DeterministicUuid(provider.PublicKey);
 
         foreach (var channel in raw)
         {
-            if (string.IsNullOrWhiteSpace(channel.Id))
+            if (string.IsNullOrWhiteSpace(channel.Id) || string.IsNullOrWhiteSpace(channel.Name))
                 continue;
 
-            var hlsUrl =
+            var masterUrl =
                 channel.Stitched?.Urls?
-                    .FirstOrDefault(u => string.Equals(
-                        u.Type,
-                        "hls",
-                        StringComparison.OrdinalIgnoreCase))
-                    ?.Url
-                ?? channel.Stitched?.Urls?
-                    .FirstOrDefault()?.Url;
+                    .FirstOrDefault(u => string.Equals(u.Type, "hls", StringComparison.OrdinalIgnoreCase))?.Url
+                ?? channel.Stitched?.Urls?.FirstOrDefault()?.Url;
 
-            if (string.IsNullOrWhiteSpace(hlsUrl))
+            if (string.IsNullOrWhiteSpace(masterUrl))
                 continue;
 
-            try
+            result.Channels.Add(new ExternalChannel
             {
-                var variants =
-                    await ExtractHlsVariantsAsync(
-                        httpClient,
-                        hlsUrl,
-                        cancellationToken);
+                Id = channel.Id,
+                Name = channel.Name,
+                Logo = channel.Logo?.Path,
+                Categories = string.IsNullOrWhiteSpace(channel.Category) ? [] : [channel.Category],
+                Country = "US"
+            });
 
-                if (variants.Count > 0)
-                {
-                    foreach (var variant in variants)
-                    {
-                        streams.Add(new ExternalStream
-                        {
-                            Channel = channel.Id,
-                            Url = variant.Url,
-                            Quality = variant.Quality
-                        });
-                    }
-
-                    continue;
-                }
-            }
-            catch
-            {
-                // If the master playlist cannot be read,
-                // keep the original HLS stream as Auto.
-            }
-
-            streams.Add(new ExternalStream
+            // Store the master URL as ONE adaptive "Auto" stream; do not extract per-variant
+            // session URLs (they expire). Stable ExternalId keeps the same doc across syncs.
+            result.Streams.Add(new ExternalStream
             {
                 Channel = channel.Id,
-                Url = hlsUrl,
-                Quality = "Auto"
+                Url = FillPlutoSessionParams(masterUrl, deviceId),
+                Quality = "Auto",
+                IsAdaptive = true,
+                StableExternalId = ComputeHash(provider.PublicKey, channel.Id, "Auto")
             });
         }
 
-        return streams;
+        return result;
     }
 
-    private static async Task<List<HlsVariant>>
-        ExtractHlsVariantsAsync(
-            HttpClient httpClient,
-            string masterUrl,
-            CancellationToken cancellationToken)
+    // Fills empty deviceId/sid (and advertisingId) query parameters with a stable UUID.
+    private static string FillPlutoSessionParams(string url, string uuid)
     {
-        using var response =
-            await httpClient.GetAsync(
-                masterUrl,
-                cancellationToken);
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return url;
 
-        response.EnsureSuccessStatusCode();
+        var query = uri.Query.TrimStart('?');
+        if (query.Length == 0)
+            return url;
 
-        var playlist =
-            await response.Content.ReadAsStringAsync(
-                cancellationToken);
-
-        if (string.IsNullOrWhiteSpace(playlist))
-            return [];
-
-        var lines =
-            playlist
-                .Split(
-                    ['\r', '\n'],
-                    StringSplitOptions.RemoveEmptyEntries);
-
-        var variants = new List<HlsVariant>();
-
-        for (var i = 0; i < lines.Length; i++)
+        var parts = query.Split('&', StringSplitOptions.RemoveEmptyEntries);
+        for (var i = 0; i < parts.Length; i++)
         {
-            var line = lines[i].Trim();
+            var eq = parts[i].IndexOf('=');
+            if (eq < 0) continue;
 
-            if (!line.StartsWith(
-                    "#EXT-X-STREAM-INF:",
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
+            var key = parts[i][..eq];
+            var value = parts[i][(eq + 1)..];
 
-            var attributes =
-                line["#EXT-X-STREAM-INF:".Length..];
-
-            var resolution =
-                GetHlsAttribute(
-                    attributes,
-                    "RESOLUTION");
-
-            var bandwidth =
-                GetHlsAttribute(
-                    attributes,
-                    "BANDWIDTH");
-
-            string? variantUrl = null;
-
-            for (var j = i + 1; j < lines.Length; j++)
-            {
-                var next = lines[j].Trim();
-
-                if (string.IsNullOrWhiteSpace(next))
-                    continue;
-
-                if (next.StartsWith("#"))
-                    continue;
-
-                variantUrl = next;
-
-                i = j;
-                break;
-            }
-
-            if (string.IsNullOrWhiteSpace(variantUrl))
-                continue;
-
-            var absoluteUrl =
-                ResolveHlsUrl(
-                    masterUrl,
-                    variantUrl);
-
-            var quality =
-                ResolveQuality(
-                    resolution,
-                    bandwidth);
-
-            variants.Add(new HlsVariant
-            {
-                Url = absoluteUrl,
-                Quality = quality
-            });
+            if (value.Length == 0 &&
+                key is "deviceId" or "sid" or "advertisingId" or "sessionID" or "clientID")
+                parts[i] = $"{key}={uuid}";
         }
 
-        return variants
-            .GroupBy(v =>
-                    $"{v.Quality}|{v.Url}",
-                StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .OrderByDescending(v =>
-                GetQualityRank(v.Quality))
-            .ToList();
+        var builder = new UriBuilder(uri) { Query = string.Join('&', parts) };
+        return builder.Uri.ToString();
     }
 
-    private static string? GetHlsAttribute(
-        string attributes,
-        string attributeName)
+    private static string DeterministicUuid(string seed)
     {
-        var parts =
-            attributes.Split(
-                ',',
-                StringSplitOptions.RemoveEmptyEntries);
-
-        foreach (var part in parts)
-        {
-            var separator =
-                part.IndexOf('=');
-
-            if (separator <= 0)
-                continue;
-
-            var key =
-                part[..separator].Trim();
-
-            if (!string.Equals(
-                    key,
-                    attributeName,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            return part[(separator + 1)..]
-                .Trim()
-                .Trim('"');
-        }
-
-        return null;
+        var bytes = MD5.HashData(Encoding.UTF8.GetBytes(seed));
+        return new Guid(bytes).ToString();
     }
 
-    private static string ResolveQuality(
-        string? resolution,
-        string? bandwidth)
+    private static string ComputeHash(params string[] values)
     {
-        if (!string.IsNullOrWhiteSpace(resolution))
-        {
-            var xIndex =
-                resolution.IndexOf(
-                    'x',
-                    StringComparison.OrdinalIgnoreCase);
-
-            if (xIndex > 0
-                && int.TryParse(
-                    resolution[(xIndex + 1)..],
-                    out var height))
-            {
-                return $"{height}p";
-            }
-        }
-
-        // Some playlists don't expose RESOLUTION.
-        // Use bandwidth only as a fallback.
-        if (long.TryParse(
-                bandwidth,
-                out var bitrate))
-        {
-            return bitrate switch
-            {
-                >= 8_000_000 => "1080p",
-                >= 4_000_000 => "720p",
-                >= 2_000_000 => "480p",
-                >= 1_000_000 => "360p",
-                _ => "Auto"
-            };
-        }
-
-        return "Auto";
-    }
-
-    private static int GetQualityRank(
-        string quality)
-    {
-        return quality.ToLowerInvariant() switch
-        {
-            "2160p" => 2160,
-            "1440p" => 1440,
-            "1080p" => 1080,
-            "720p" => 720,
-            "576p" => 576,
-            "480p" => 480,
-            "360p" => 360,
-            "240p" => 240,
-            _ => 0
-        };
-    }
-
-    private static string ResolveHlsUrl(
-        string masterUrl,
-        string variantUrl)
-    {
-        if (Uri.TryCreate(
-                variantUrl,
-                UriKind.Absolute,
-                out var absolute))
-        {
-            return absolute.ToString();
-        }
-
-        if (!Uri.TryCreate(
-                masterUrl,
-                UriKind.Absolute,
-                out var master))
-        {
-            return variantUrl;
-        }
-
-        return new Uri(
-            master,
-            variantUrl).ToString();
-    }
-
-    private sealed class HlsVariant
-    {
-        public string Url { get; set; } = string.Empty;
-
-        public string Quality { get; set; } = "Auto";
+        var raw = string.Join("|", values.Select(v => v ?? string.Empty));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
     }
 
     #endregion

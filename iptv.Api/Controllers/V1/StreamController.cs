@@ -4,6 +4,7 @@ using iptv.Services._Stream.DTOs.Results;
 using iptv.Services._Stream.DTOs.Updates;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
+using Utilities._Permissions.Constants;
 using Utilities.Api;
 using Utilities.Attributes;
 using Utilities.Filters;
@@ -36,21 +37,21 @@ namespace iptv.Api.Controllers.V1
         [HttpPost("[action]")]
         [Authorize]
         [CustomRateLimit]
-        [SwaggerOperation(Summary = "Report a failing stream; another healthy stream is selected automatically.",
+        [SwaggerOperation(Summary = "Report a failing stream; a replacement is selected across all providers of the canonical channel.",
             Tags = ["Stream"])]
-        public async Task<StreamFilteredResult> ReportFailureAsync(StreamReportFailureUpdate update)
+        public async Task<StreamReportFailureResult> ReportFailureAsync(StreamReportFailureUpdate update)
             => await _streamService.ReportStreamFailureAsync(update);
 
         #region Admin Actions
 
         [HttpPut("[action]")]
-        // [Authorize(Permissions.EditStream)]
+        [Authorize(Permissions.EditStream)]
         [SwaggerOperation(Summary = "Activate or deactivate a stream.", Tags = ["Stream-Admin"])]
         public async Task<StreamFilteredResult> ActivateAsync(StreamActivateUpdate update)
             => await _streamService.ActivateAsync(update);
 
         [HttpDelete("[action]")]
-        // [Authorize(Permissions.DeleteStream)]
+        [Authorize(Permissions.DeleteStream)]
         [SwaggerOperation(Summary = "Delete a stream.", Tags = ["Stream-Admin"])]
         public async Task<string> DeleteAsync(StreamDeleteUpdate update)
             => await _streamService.DeleteAsync(update);
