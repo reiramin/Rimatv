@@ -118,6 +118,9 @@ public class StartupInitializer(IServiceProvider _serviceProvider, ILogger<Start
             .BuildAsync(new CreateIndexOptions { Unique = true, Name = "ux_stream_provider_external" }));
         await TryIndex(() => streamRepo.AscendingIndex(s => s.ChannelId)
             .BuildAsync(new CreateIndexOptions { Name = "ix_stream_channelId" }));
+        // Probe bulk updates, ResolveAsync and ReportFailure look streams up by StreamId.
+        await TryIndex(() => streamRepo.AscendingIndex(s => s.StreamId)
+            .BuildAsync(new CreateIndexOptions { Name = "ix_stream_streamId" }));
         await TryIndex(() => streamRepo
             .AscendingIndex(s => s.Inactive).AscendingIndex(s => s.IsHealthy)
             .BuildAsync(new CreateIndexOptions { Name = "ix_stream_inactive_healthy" }));
