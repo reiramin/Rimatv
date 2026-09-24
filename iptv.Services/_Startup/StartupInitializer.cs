@@ -31,10 +31,16 @@ public class StartupInitializer(IServiceProvider _serviceProvider, ILogger<Start
         var streamRepo = sp.GetRequiredService<IStreamRepository>();
         var providerRepo = sp.GetRequiredService<IIptvProviderRepository>();
         var registryRepo = sp.GetRequiredService<IChannelRegistryRepository>();
+        var migrationRepo = sp.GetRequiredService<IMigrationRepository>();
         var config = sp.GetRequiredService<IConfiguration>();
 
-        await SafeStep("dedupe", () => DedupeAsync(channelRepo, streamRepo, cancellationToken));
-        await SafeStep("indexes", () => CreateIndexesAsync(channelRepo, streamRepo, registryRepo, cancellationToken));
+        // Loading every channel and stream is expensive on the free host, which restarts often:
+        // dedupe runs once (marker "dedupe-v1"), or again when a unique index hits duplicate keys.
+        await SafeStep("dedupe", () => DedupeMigration.RunOnceAsync(
+            migrationRepo, () => DedupeAsync(channelRepo, streamRepo, cancellationToken), cancellationToken));
+        await SafeStep("indexes", () => CreateIndexesAsync(
+            channelRepo, streamRepo, registryRepo,
+            () => DedupeAsync(channelRepo, streamRepo, cancellationToken), cancellationToken));
         await SafeStep("registry-seed", () => SeedRegistryAsync(registryRepo, cancellationToken));
 
         if (config.GetValue("ProviderSeed:Enabled", true))
@@ -95,8 +101,10 @@ public class StartupInitializer(IServiceProvider _serviceProvider, ILogger<Start
 
     private static async Task CreateIndexesAsync(
         IChannelRepository channelRepo, IStreamRepository streamRepo,
-        IChannelRegistryRepository registryRepo, CancellationToken ct)
+        IChannelRegistryRepository registryRepo, Func<Task> dedupe, CancellationToken ct)
     {
+        var dedupeRan = false;
+
         await TryIndex(() => channelRepo
             .AscendingIndex(c => c.ProviderPublicKey).AscendingIndex(c => c.ExternalId)
             .BuildAsync(new CreateIndexOptions { Unique = true, Name = "ux_channel_provider_external" }));
@@ -117,11 +125,21 @@ public class StartupInitializer(IServiceProvider _serviceProvider, ILogger<Start
         await TryIndex(() => registryRepo.AscendingIndex(r => r.CanonicalId)
             .BuildAsync(new CreateIndexOptions { Unique = true, Name = "ux_registry_canonicalId" }));
 
-        await Task.CompletedTask;
-
-        static async Task TryIndex(Func<Task> build)
+        async Task TryIndex(Func<Task> build)
         {
             try { await build(); }
+            catch (Exception ex) when (DedupeMigration.IsDuplicateKeyError(ex))
+            {
+                // Duplicates slipped in (e.g. an older build without the index): dedupe, retry once.
+                if (!dedupeRan)
+                {
+                    dedupeRan = true;
+                    await dedupe();
+                }
+
+                try { await build(); }
+                catch { /* still failing; leave it and retry next boot */ }
+            }
             catch { /* an incompatible legacy index already exists; leave it in place */ }
         }
     }
