@@ -11,7 +11,8 @@ public interface IStreamService
 
     Task<StreamPlaybackResult> GetPlaybackStreamAsync(GetGlobalIdUpdate channelId);
 
-    Task<StreamReportFailureResult> ReportStreamFailureAsync(StreamReportFailureUpdate update);
+    Task<StreamReportFailureResult> ReportStreamFailureAsync(
+        StreamReportFailureUpdate update, string anonymousReporterKey = null);
 
     Task<StreamFilteredResult> ActivateAsync(StreamActivateUpdate update);
 

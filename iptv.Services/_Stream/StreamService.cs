@@ -65,13 +65,15 @@ public class StreamService(
         };
     }
 
-    public async Task<StreamReportFailureResult> ReportStreamFailureAsync(StreamReportFailureUpdate update)
+    public async Task<StreamReportFailureResult> ReportStreamFailureAsync(
+        StreamReportFailureUpdate update, string anonymousReporterKey = null)
     {
         var stream = await _streamRepository.GetByStreamIdAsync(update.StreamId)
                      ?? throw new NotFoundException("Stream not found.");
 
         var now = DateTime.UtcNow;
-        var userKey = CurrentRequestContext.User?.PublicKey ?? "anonymous";
+        // Anonymous clients are keyed by SHA256(ip + daily salt) so distinct users are still counted.
+        var userKey = CurrentRequestContext.User?.PublicKey ?? anonymousReporterKey ?? "anonymous";
 
         await RecordFailureAsync(stream, userKey, update.Reason, now);
 
