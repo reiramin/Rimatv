@@ -37,13 +37,16 @@ namespace iptv.Api.Controllers.V1
             CancellationToken cancellationToken)
             => await _channelService.GetCuratedCountriesAsync(cancellationToken);
 
+        // Unchanged by default (whole list); optional country / page / size make it pageable
+        // because the full list can be ~14k items (tens of MB) on the bandwidth-capped host.
         [HttpGet("[action]")]
         [SwaggerOperation(
             Summary = "Get all active channels with their best stream— for Flutter landing.",
             Tags = ["Channel"])]
         [CustomRateLimit]
-        public async Task<List<AllChannelWithStreamResult>> GetAllUnpagedWithStreamAsync()
-            => await _channelService.GetAllUnpagedWithStreamAsync();
+        public async Task<List<AllChannelWithStreamResult>> GetAllUnpagedWithStreamAsync(
+            [FromQuery] string country, [FromQuery] int? page, [FromQuery] int? size, CancellationToken cancellationToken)
+            => await _channelService.GetAllUnpagedWithStreamAsync(country, page, size, cancellationToken);
 
         [HttpPost("[action]")]
         [CustomRateLimit]

@@ -15,6 +15,14 @@ builder.Services.AddSwagger();
 
 builder.Services.AddMemoryCache();
 
+// Outbound bandwidth on the free host is capped (5 GB/month): gzip every JSON response.
+builder.Services.AddGzipResponseCompression();
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.ResponseCompressionOptions>(
+    o => o.EnableForHttps = true);
+
+// The validator posts probe results gzip-compressed (Content-Encoding: gzip).
+builder.Services.AddRequestDecompression();
+
 builder.Services.AddCoreSettings(builder.Configuration);
 builder.Services.AddSettings(builder.Configuration);
 
@@ -36,6 +44,10 @@ builder.Host.ConfigureContainer<ContainerBuilder>(
     });
 
 var app = builder.Build();
+
+// Early: before any middleware that reads the request body (logging, AntiXss) or writes responses.
+app.UseRequestDecompression();
+app.UseResponseCompression();
 
 if (app.Environment.IsDevelopment())
 {

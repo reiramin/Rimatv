@@ -39,7 +39,7 @@ public class ChannelService(
     #region Canonical list endpoints
 
     public async Task<List<AllChannelWithStreamResult>> GetAllUnpagedWithStreamAsync(
-        CancellationToken cancellationToken = default)
+        string country = null, int? page = null, int? size = null, CancellationToken cancellationToken = default)
     {
         var lite = await GetCachedLiteDataAsync(cancellationToken);
         if (lite.Channels.Count == 0)
@@ -88,7 +88,25 @@ public class ChannelService(
             }, selection.Winner));
         }
 
-        return result.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        return ApplyPaging(result.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase), country, page, size);
+    }
+
+    /// <summary>Optional ISO-country filter and 1-based paging; with none of them the whole list is returned.</summary>
+    internal static List<AllChannelWithStreamResult> ApplyPaging(
+        IEnumerable<AllChannelWithStreamResult> ordered, string country, int? page, int? size)
+    {
+        var wanted = string.IsNullOrWhiteSpace(country) ? null : country.Trim();
+        if (wanted != null)
+            ordered = ordered.Where(r => string.Equals(r.Country, wanted, StringComparison.OrdinalIgnoreCase));
+
+        if (page.HasValue || size.HasValue)
+        {
+            var pageSize = Math.Clamp(size ?? 200, 1, 2000);
+            var pageNumber = Math.Max(page ?? 1, 1);
+            ordered = ordered.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+        }
+
+        return ordered.ToList();
     }
 
     public async Task<List<ChannelWithStreamResult>> GetCuratedListWithStreamAsync(
