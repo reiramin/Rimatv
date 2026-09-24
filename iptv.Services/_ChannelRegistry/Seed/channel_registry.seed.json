@@ -825,94 +825,6 @@
     "geoBlockedEverywhere": false
    },
    {
-    "canonicalId": "247BoxTV.ir",
-    "name": "247 Box TV",
-    "nameFa": "۲۴۷ باکس",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "entertainment"
-    ],
-    "aliases": [
-     "247 Box TV",
-     "۲۴۷ باکس"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 2,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "AFNTV.ir",
-    "name": "AFN TV",
-    "nameFa": "ای‌اف‌ان",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "music"
-    ],
-    "aliases": [
-     "AFN TV",
-     "ای‌اف‌ان"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "AVAFamily.ir",
-    "name": "AVA Family",
-    "nameFa": "آوا فامیلی",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "family"
-    ],
-    "aliases": [
-     "AVA Family",
-     "آوا فامیلی"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "AVASeries.ir",
-    "name": "AVA Series",
-    "nameFa": "آوا سریال",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "series"
-    ],
-    "aliases": [
-     "AVA Series",
-     "آوا سریال"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
     "canonicalId": "AbadanTV.ir",
     "name": "Abadan TV",
     "nameFa": "شبکه آبادان",
@@ -933,49 +845,6 @@
      "freeTv": 0
     },
     "requiresIranianIp": true,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "AfraFilm.ir",
-    "name": "Afra Film",
-    "nameFa": "افرا فیلم",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "movies"
-    ],
-    "aliases": [
-     "Afra Film",
-     "افرا فیلم"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "AfraSeries.ir",
-    "name": "Afra Series",
-    "nameFa": null,
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "series"
-    ],
-    "aliases": [
-     "Afra Series"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 0,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
     "geoBlockedEverywhere": false
    },
    {
@@ -1091,65 +960,6 @@
     "geoBlockedEverywhere": false
    },
    {
-    "canonicalId": "AraxTV.ir",
-    "name": "Arax TV",
-    "nameFa": "آراکس",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [],
-    "aliases": [
-     "Arax TV",
-     "آراکس"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "ArkoTV.ir",
-    "name": "Arko TV",
-    "nameFa": "آرکو",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [],
-    "aliases": [
-     "Arko TV",
-     "آرکو"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "ArvanTV.ir",
-    "name": "Arvan TV",
-    "nameFa": null,
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [],
-    "aliases": [
-     "Arvan TV"
-    ],
-    "knownStreams": {
-     "iptvOrg": 2,
-     "shayanline": 0,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
     "canonicalId": "AsilTV.ir",
     "name": "Asil TV",
     "nameFa": "اصیل",
@@ -1216,25 +1026,6 @@
     "geoBlockedEverywhere": false
    },
    {
-    "canonicalId": "AtrinaTV.ir",
-    "name": "Atrina TV",
-    "nameFa": null,
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [],
-    "aliases": [
-     "Atrina TV"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 0,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
     "canonicalId": "BaranTV.ir",
     "name": "Baran TV",
     "nameFa": "شبکه باران",
@@ -1280,134 +1071,6 @@
     "geoBlockedEverywhere": false
    },
    {
-    "canonicalId": "BravoFarsiTV.ir",
-    "name": "Bravo Farsi TV",
-    "nameFa": "براوو فارسی",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "movies"
-    ],
-    "aliases": [
-     "Bravo Farsi TV",
-     "براوو فارسی"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "CafeFilm.ir",
-    "name": "Cafe Film",
-    "nameFa": "کافه فیلم",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "movies"
-    ],
-    "aliases": [
-     "Cafe Film",
-     "کافه فیلم"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "CafeTradeTV.ir",
-    "name": "Cafe Trade TV",
-    "nameFa": "کافه ترید",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "business"
-    ],
-    "aliases": [
-     "Cafe Trade TV",
-     "کافه ترید"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "ClassicTV.ir",
-    "name": "Classic TV",
-    "nameFa": "کلاسیک",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "classic"
-    ],
-    "aliases": [
-     "Classic TV",
-     "کلاسیک"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "DatisTV.ir",
-    "name": "Datis TV",
-    "nameFa": "داتیس",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [],
-    "aliases": [
-     "Datis TV",
-     "داتیس"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "DejTV.ir",
-    "name": "Dej TV",
-    "nameFa": "دژ",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [],
-    "aliases": [
-     "Dej TV",
-     "دژ"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
     "canonicalId": "DenaTV.ir",
     "name": "Dena TV",
     "nameFa": "شبکه دنا",
@@ -1429,50 +1092,6 @@
      "freeTv": 0
     },
     "requiresIranianIp": true,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "EPlanetTV.ir",
-    "name": "EPlanet TV",
-    "nameFa": "ای‌پلنت",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "documentary"
-    ],
-    "aliases": [
-     "E Planet TV",
-     "EPlanet TV",
-     "ای‌پلنت"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "EkranMovies.ir",
-    "name": "Ekran Movies",
-    "nameFa": null,
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "movies"
-    ],
-    "aliases": [
-     "Ekran Movies"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 0,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
     "geoBlockedEverywhere": false
    },
    {
@@ -1519,52 +1138,6 @@
     "geoBlockedEverywhere": false
    },
    {
-    "canonicalId": "FX1.ir",
-    "name": "FX 1",
-    "nameFa": "اف‌ایکس ۱",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "entertainment"
-    ],
-    "aliases": [
-     "FX 1",
-     "اف‌ایکس ۱",
-     "FX TV 1"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "FX2.ir",
-    "name": "FX 2",
-    "nameFa": "اف‌ایکس ۲",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "entertainment"
-    ],
-    "aliases": [
-     "FX 2",
-     "اف‌ایکس ۲",
-     "FX TV 2"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
     "canonicalId": "FarsTV.ir",
     "name": "Fars TV",
     "nameFa": "شبکه فارس",
@@ -1585,28 +1158,6 @@
      "freeTv": 0
     },
     "requiresIranianIp": true,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "GoldStar.ir",
-    "name": "Gold Star",
-    "nameFa": "گلد استار",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "movies"
-    ],
-    "aliases": [
-     "Gold Star",
-     "گلد استار"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
     "geoBlockedEverywhere": false
    },
    {
@@ -1717,28 +1268,6 @@
     "geoBlockedEverywhere": false
    },
    {
-    "canonicalId": "HomePlus.ir",
-    "name": "HomePlus",
-    "nameFa": "هوم پلاس",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "movies"
-    ],
-    "aliases": [
-     "HomePlus",
-     "هوم پلاس"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
     "canonicalId": "IRIB1Plus.ir",
     "name": "IRIB TV1 +",
     "nameFa": "شبکه یک پلاس",
@@ -1801,29 +1330,6 @@
      "freeTv": 0
     },
     "requiresIranianIp": true,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "IranJewishTV.ir",
-    "name": "Iran Jewish TV",
-    "nameFa": "یهودیان ایرانی",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "religious"
-    ],
-    "aliases": [
-     "Iran Jewish TV",
-     "تلویزیون یهودیان ایرانی",
-     "یهودیان ایرانی"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
     "geoBlockedEverywhere": false
    },
    {
@@ -1892,25 +1398,6 @@
      "freeTv": 0
     },
     "requiresIranianIp": true,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "KhalijTV.ir",
-    "name": "Khalij TV",
-    "nameFa": null,
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [],
-    "aliases": [
-     "Khalij TV"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 0,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
     "geoBlockedEverywhere": false
    },
    {
@@ -2095,93 +1582,6 @@
     "geoBlockedEverywhere": false
    },
    {
-    "canonicalId": "MetaFilmTV.ir",
-    "name": "Meta Film TV",
-    "nameFa": "متا فیلم",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "movies"
-    ],
-    "aliases": [
-     "Meta Film TV",
-     "متا فیلم"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "MihanTV.ir",
-    "name": "Mihan TV",
-    "nameFa": "میهن",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "news"
-    ],
-    "aliases": [
-     "Mihan TV",
-     "میهن"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "MohabatTV.ir",
-    "name": "Mohabat TV",
-    "nameFa": null,
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "religious"
-    ],
-    "aliases": [
-     "Mohabat TV"
-    ],
-    "knownStreams": {
-     "iptvOrg": 2,
-     "shayanline": 0,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "NewFlix.ir",
-    "name": "NewFlix",
-    "nameFa": null,
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "movies"
-    ],
-    "aliases": [
-     "NewFlix",
-     "Newflix"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 0,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
     "canonicalId": "NoorTV.ir",
     "name": "Noor TV",
     "nameFa": "شبکه نور",
@@ -2201,29 +1601,6 @@
      "freeTv": 0
     },
     "requiresIranianIp": true,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "OXIRTV.ir",
-    "name": "OXIR TV",
-    "nameFa": "اکسیر",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "entertainment"
-    ],
-    "aliases": [
-     "OXIR TV",
-     "Oxir TV",
-     "اکسیر"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
     "geoBlockedEverywhere": false
    },
    {
@@ -2399,72 +1776,6 @@
      "freeTv": 0
     },
     "requiresIranianIp": true,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "SL1.ir",
-    "name": "SL 1",
-    "nameFa": "اس‌ال ۱",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "movies"
-    ],
-    "aliases": [
-     "SL 1",
-     "اس‌ال ۱"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "SL2.ir",
-    "name": "SL 2",
-    "nameFa": "اس‌ال ۲",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "movies"
-    ],
-    "aliases": [
-     "SL 2",
-     "اس‌ال ۲"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "SNNTV.ir",
-    "name": "SNN TV",
-    "nameFa": "اس‌ان‌ان",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "news"
-    ],
-    "aliases": [
-     "SNN TV",
-     "اس‌ان‌ان"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
     "geoBlockedEverywhere": false
    },
    {
@@ -2660,93 +1971,6 @@
     "geoBlockedEverywhere": false
    },
    {
-    "canonicalId": "T2Movies.ir",
-    "name": "T2 Movies",
-    "nameFa": null,
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "movies"
-    ],
-    "aliases": [
-     "T2 Movies"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 0,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "T2TV.ir",
-    "name": "T2 TV",
-    "nameFa": "تی۲",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "music"
-    ],
-    "aliases": [
-     "T2 TV",
-     "تی۲"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 2,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "TBNNejatTV.ir",
-    "name": "TBN Nejat TV",
-    "nameFa": "شبکه نجات",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [],
-    "aliases": [
-     "TBN Nejat TV",
-     "شبکه نجات"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "TVITN.ir",
-    "name": "TV ITN",
-    "nameFa": "آی‌تی‌ان",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "entertainment"
-    ],
-    "aliases": [
-     "ITN",
-     "TV ITN",
-     "آی‌تی‌ان",
-     "ITN TV"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
     "canonicalId": "TVANava.ir",
     "name": "TVA Nava",
     "nameFa": null,
@@ -2854,29 +2078,6 @@
     "geoBlockedEverywhere": false
    },
    {
-    "canonicalId": "WiseHumanTv.ir",
-    "name": "WiseHumanTv",
-    "nameFa": "انسان عاقل",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "religious"
-    ],
-    "aliases": [
-     "Wise Human TV",
-     "WiseHumanTv",
-     "انسان عاقل"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
-    "geoBlockedEverywhere": false
-   },
-   {
     "canonicalId": "YazdTV.ir",
     "name": "Yazd TV",
     "nameFa": "شبکه تابان یزد",
@@ -2896,28 +2097,6 @@
      "freeTv": 0
     },
     "requiresIranianIp": true,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "YourTimeTV.ir",
-    "name": "YourTime TV",
-    "nameFa": "یورتایم",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [
-     "entertainment"
-    ],
-    "aliases": [
-     "YourTime TV",
-     "یورتایم"
-    ],
-    "knownStreams": {
-     "iptvOrg": 2,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
     "geoBlockedEverywhere": false
    },
    {
@@ -2942,26 +2121,6 @@
      "freeTv": 0
     },
     "requiresIranianIp": true,
-    "geoBlockedEverywhere": false
-   },
-   {
-    "canonicalId": "ZedTV.ir",
-    "name": "Zed TV",
-    "nameFa": "زد",
-    "curatedCountry": "iran",
-    "curatedRank": 1000,
-    "sourceCountry": "IR",
-    "categories": [],
-    "aliases": [
-     "Zed TV",
-     "زد"
-    ],
-    "knownStreams": {
-     "iptvOrg": 1,
-     "shayanline": 1,
-     "freeTv": 0
-    },
-    "requiresIranianIp": false,
     "geoBlockedEverywhere": false
    }
   ],
@@ -5749,6 +4908,847 @@
      "ICnet 3",
      "icnet 3",
      "آی‌سی‌نت ۳"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "247BoxTV.ir",
+    "name": "247 Box TV",
+    "nameFa": "۲۴۷ باکس",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "entertainment"
+    ],
+    "aliases": [
+     "247 Box TV",
+     "۲۴۷ باکس"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 2,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "AFNTV.ir",
+    "name": "AFN TV",
+    "nameFa": "ای‌اف‌ان",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "music"
+    ],
+    "aliases": [
+     "AFN TV",
+     "ای‌اف‌ان"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "AVAFamily.ir",
+    "name": "AVA Family",
+    "nameFa": "آوا فامیلی",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "family"
+    ],
+    "aliases": [
+     "AVA Family",
+     "آوا فامیلی"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "AVASeries.ir",
+    "name": "AVA Series",
+    "nameFa": "آوا سریال",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "series"
+    ],
+    "aliases": [
+     "AVA Series",
+     "آوا سریال"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "AfraFilm.ir",
+    "name": "Afra Film",
+    "nameFa": "افرا فیلم",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "movies"
+    ],
+    "aliases": [
+     "Afra Film",
+     "افرا فیلم"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "AfraSeries.ir",
+    "name": "Afra Series",
+    "nameFa": null,
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "series"
+    ],
+    "aliases": [
+     "Afra Series"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 0,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "AraxTV.ir",
+    "name": "Arax TV",
+    "nameFa": "آراکس",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [],
+    "aliases": [
+     "Arax TV",
+     "آراکس"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "ArkoTV.ir",
+    "name": "Arko TV",
+    "nameFa": "آرکو",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [],
+    "aliases": [
+     "Arko TV",
+     "آرکو"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "ArvanTV.ir",
+    "name": "Arvan TV",
+    "nameFa": null,
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [],
+    "aliases": [
+     "Arvan TV"
+    ],
+    "knownStreams": {
+     "iptvOrg": 2,
+     "shayanline": 0,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "AtrinaTV.ir",
+    "name": "Atrina TV",
+    "nameFa": null,
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [],
+    "aliases": [
+     "Atrina TV"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 0,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "BravoFarsiTV.ir",
+    "name": "Bravo Farsi TV",
+    "nameFa": "براوو فارسی",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "movies"
+    ],
+    "aliases": [
+     "Bravo Farsi TV",
+     "براوو فارسی"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "CafeFilm.ir",
+    "name": "Cafe Film",
+    "nameFa": "کافه فیلم",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "movies"
+    ],
+    "aliases": [
+     "Cafe Film",
+     "کافه فیلم"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "CafeTradeTV.ir",
+    "name": "Cafe Trade TV",
+    "nameFa": "کافه ترید",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "business"
+    ],
+    "aliases": [
+     "Cafe Trade TV",
+     "کافه ترید"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "ClassicTV.ir",
+    "name": "Classic TV",
+    "nameFa": "کلاسیک",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "classic"
+    ],
+    "aliases": [
+     "Classic TV",
+     "کلاسیک"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "DatisTV.ir",
+    "name": "Datis TV",
+    "nameFa": "داتیس",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [],
+    "aliases": [
+     "Datis TV",
+     "داتیس"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "DejTV.ir",
+    "name": "Dej TV",
+    "nameFa": "دژ",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [],
+    "aliases": [
+     "Dej TV",
+     "دژ"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "EPlanetTV.ir",
+    "name": "EPlanet TV",
+    "nameFa": "ای‌پلنت",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "documentary"
+    ],
+    "aliases": [
+     "E Planet TV",
+     "EPlanet TV",
+     "ای‌پلنت"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "EkranMovies.ir",
+    "name": "Ekran Movies",
+    "nameFa": null,
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "movies"
+    ],
+    "aliases": [
+     "Ekran Movies"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 0,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "FX1.ir",
+    "name": "FX 1",
+    "nameFa": "اف‌ایکس ۱",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "entertainment"
+    ],
+    "aliases": [
+     "FX 1",
+     "اف‌ایکس ۱",
+     "FX TV 1"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "FX2.ir",
+    "name": "FX 2",
+    "nameFa": "اف‌ایکس ۲",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "entertainment"
+    ],
+    "aliases": [
+     "FX 2",
+     "اف‌ایکس ۲",
+     "FX TV 2"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "GoldStar.ir",
+    "name": "Gold Star",
+    "nameFa": "گلد استار",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "movies"
+    ],
+    "aliases": [
+     "Gold Star",
+     "گلد استار"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "HomePlus.ir",
+    "name": "HomePlus",
+    "nameFa": "هوم پلاس",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "movies"
+    ],
+    "aliases": [
+     "HomePlus",
+     "هوم پلاس"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "IranJewishTV.ir",
+    "name": "Iran Jewish TV",
+    "nameFa": "یهودیان ایرانی",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "religious"
+    ],
+    "aliases": [
+     "Iran Jewish TV",
+     "تلویزیون یهودیان ایرانی",
+     "یهودیان ایرانی"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "KhalijTV.ir",
+    "name": "Khalij TV",
+    "nameFa": null,
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [],
+    "aliases": [
+     "Khalij TV"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 0,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "MetaFilmTV.ir",
+    "name": "Meta Film TV",
+    "nameFa": "متا فیلم",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "movies"
+    ],
+    "aliases": [
+     "Meta Film TV",
+     "متا فیلم"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "MihanTV.ir",
+    "name": "Mihan TV",
+    "nameFa": "میهن",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "news"
+    ],
+    "aliases": [
+     "Mihan TV",
+     "میهن"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "MohabatTV.ir",
+    "name": "Mohabat TV",
+    "nameFa": null,
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "religious"
+    ],
+    "aliases": [
+     "Mohabat TV"
+    ],
+    "knownStreams": {
+     "iptvOrg": 2,
+     "shayanline": 0,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "NewFlix.ir",
+    "name": "NewFlix",
+    "nameFa": null,
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "movies"
+    ],
+    "aliases": [
+     "NewFlix",
+     "Newflix"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 0,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "OXIRTV.ir",
+    "name": "OXIR TV",
+    "nameFa": "اکسیر",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "entertainment"
+    ],
+    "aliases": [
+     "OXIR TV",
+     "Oxir TV",
+     "اکسیر"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "SL1.ir",
+    "name": "SL 1",
+    "nameFa": "اس‌ال ۱",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "movies"
+    ],
+    "aliases": [
+     "SL 1",
+     "اس‌ال ۱"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "SL2.ir",
+    "name": "SL 2",
+    "nameFa": "اس‌ال ۲",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "movies"
+    ],
+    "aliases": [
+     "SL 2",
+     "اس‌ال ۲"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "SNNTV.ir",
+    "name": "SNN TV",
+    "nameFa": "اس‌ان‌ان",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "news"
+    ],
+    "aliases": [
+     "SNN TV",
+     "اس‌ان‌ان"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "T2Movies.ir",
+    "name": "T2 Movies",
+    "nameFa": null,
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "movies"
+    ],
+    "aliases": [
+     "T2 Movies"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 0,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "T2TV.ir",
+    "name": "T2 TV",
+    "nameFa": "تی۲",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "music"
+    ],
+    "aliases": [
+     "T2 TV",
+     "تی۲"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 2,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "TBNNejatTV.ir",
+    "name": "TBN Nejat TV",
+    "nameFa": "شبکه نجات",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [],
+    "aliases": [
+     "TBN Nejat TV",
+     "شبکه نجات"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "TVITN.ir",
+    "name": "TV ITN",
+    "nameFa": "آی‌تی‌ان",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "entertainment"
+    ],
+    "aliases": [
+     "ITN",
+     "TV ITN",
+     "آی‌تی‌ان",
+     "ITN TV"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "WiseHumanTv.ir",
+    "name": "WiseHumanTv",
+    "nameFa": "انسان عاقل",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "religious"
+    ],
+    "aliases": [
+     "Wise Human TV",
+     "WiseHumanTv",
+     "انسان عاقل"
+    ],
+    "knownStreams": {
+     "iptvOrg": 1,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "YourTimeTV.ir",
+    "name": "YourTime TV",
+    "nameFa": "یورتایم",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [
+     "entertainment"
+    ],
+    "aliases": [
+     "YourTime TV",
+     "یورتایم"
+    ],
+    "knownStreams": {
+     "iptvOrg": 2,
+     "shayanline": 1,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "ZedTV.ir",
+    "name": "Zed TV",
+    "nameFa": "زد",
+    "curatedCountry": "iran-foreign",
+    "curatedRank": 1000,
+    "sourceCountry": "IR",
+    "categories": [],
+    "aliases": [
+     "Zed TV",
+     "زد"
     ],
     "knownStreams": {
      "iptvOrg": 1,
@@ -8846,6 +8846,51 @@
     ],
     "knownStreams": {
      "iptvOrg": 1,
+     "shayanline": 0,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "ShowTV.tr",
+    "name": "Show TV",
+    "nameFa": null,
+    "curatedCountry": "tr",
+    "curatedRank": 3,
+    "sourceCountry": "TR",
+    "categories": [
+     "general"
+    ],
+    "aliases": [
+     "Show TV",
+     "ShowTV",
+     "Show TV HD"
+    ],
+    "knownStreams": {
+     "iptvOrg": 0,
+     "shayanline": 0,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "ShowMax.tr",
+    "name": "Show Max",
+    "nameFa": null,
+    "curatedCountry": "tr",
+    "curatedRank": 1000,
+    "sourceCountry": "TR",
+    "categories": [
+     "general"
+    ],
+    "aliases": [
+     "Show Max",
+     "ShowMax"
+    ],
+    "knownStreams": {
+     "iptvOrg": 0,
      "shayanline": 0,
      "freeTv": 0
     },

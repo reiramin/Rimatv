@@ -66,7 +66,7 @@ public class ChannelService(
                 NameFa = reg?.NameFa,
                 CuratedCountry = reg?.CuratedCountry,
                 ImageUri = display.ImageUri,
-                Country = display.Country,
+                Country = ResolveDisplayCountry(display.Country, reg),
                 Category = reg?.Categories?.FirstOrDefault() ?? display.Category,
                 CurrentStreamUrl = selection.Winner.StreamUri,
                 StreamId = selection.Winner.StreamId,
@@ -125,7 +125,7 @@ public class ChannelService(
                 NameFa = entry.NameFa,
                 CuratedCountry = entry.CuratedCountry,
                 ImageUri = display.ImageUri,
-                Country = display.Country,
+                Country = ResolveDisplayCountry(display.Country, entry),
                 Category = entry.Categories?.FirstOrDefault() ?? display.Category,
                 CurrentStreamUrl = selection.Winner.StreamUri,
                 StreamId = selection.Winner.StreamId,
@@ -249,6 +249,36 @@ public class ChannelService(
 
     private static string CanonicalKey(ChannelLiteProjection c)
         => string.IsNullOrWhiteSpace(c.CanonicalId) ? c.ChannelId : c.CanonicalId;
+
+    /// <summary>
+    /// The Flutter app groups channels by the ISO <c>country</c> field, so it must never be empty
+    /// (M3U sources such as shayanline carry no tvg-country). Persian channels (iran / iran-foreign)
+    /// are reported as IR so they are grouped together for Iranian users; other curated keys map to
+    /// their ISO code; iptv-org's non-standard "UK" becomes "GB".
+    /// </summary>
+    private static string ResolveDisplayCountry(string channelCountry, ChannelRegistry reg)
+    {
+        if (reg != null)
+        {
+            if (string.Equals(reg.CuratedCountry, "iran", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(reg.CuratedCountry, "iran-foreign", StringComparison.OrdinalIgnoreCase))
+                return "IR";
+
+            if (reg.CuratedCountry?.Length == 2)
+                return NormalizeIso(reg.CuratedCountry);
+
+            if (!string.IsNullOrWhiteSpace(reg.SourceCountry))
+                return NormalizeIso(reg.SourceCountry);
+        }
+
+        return NormalizeIso(channelCountry);
+    }
+
+    private static string NormalizeIso(string country)
+    {
+        var c = (country ?? string.Empty).Trim().ToUpperInvariant();
+        return c == "UK" ? "GB" : c;
+    }
 
     #endregion
 
