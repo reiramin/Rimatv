@@ -75,6 +75,7 @@ public class Streams : BaseDocument
     public string ResolveMethod { get; set; }
     public string ResolvePattern { get; set; }
     public string ResolveApiUrl { get; set; }
+    public string ResolveBaseUrl { get; set; }
     public Dictionary<string, string> ResolveHeaders { get; set; }
     public int ResolveTtlSeconds { get; set; }
     public bool IpBound { get; set; }

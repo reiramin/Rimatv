@@ -44,6 +44,7 @@ public class ExternalStream
     [JsonIgnore] public string ResolveMethod { get; set; }
     [JsonIgnore] public string ResolvePattern { get; set; }
     [JsonIgnore] public string ResolveApiUrl { get; set; }
+    [JsonIgnore] public string ResolveBaseUrl { get; set; }
     [JsonIgnore] public Dictionary<string, string> ResolveHeaders { get; set; }
     [JsonIgnore] public int ResolveTtlSeconds { get; set; }
     [JsonIgnore] public bool IpBound { get; set; }

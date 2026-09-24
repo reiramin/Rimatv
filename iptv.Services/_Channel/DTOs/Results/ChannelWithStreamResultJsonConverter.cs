@@ -83,6 +83,7 @@ public class ChannelWithStreamResultJsonConverter : JsonConverter<ChannelWithStr
         if (f.Method != null) writer.WriteString("method", f.Method);
         if (f.Pattern != null) writer.WriteString("pattern", f.Pattern);
         if (f.ApiUrl != null) writer.WriteString("apiUrl", f.ApiUrl);
+        if (f.BaseUrl != null) writer.WriteString("baseUrl", f.BaseUrl);
         if (f.Headers is { Count: > 0 })
         {
             writer.WritePropertyName("headers");

@@ -536,6 +536,7 @@ public class ChannelService(
                 ResolveMethod = q.ResolveMethod,
                 ResolvePattern = q.ResolvePattern,
                 ResolveApiUrl = q.ResolveApiUrl,
+                ResolveBaseUrl = q.ResolveBaseUrl,
                 ResolveHeaders = q.ResolveHeaders,
                 PlayerUrl = q.PlayerUrl,
                 Embeddable = q.Embeddable

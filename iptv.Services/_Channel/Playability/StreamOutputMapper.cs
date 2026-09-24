@@ -41,6 +41,7 @@ public class StreamOutputMapper(AppSettings _appSettings, RelaySettings _relaySe
                 target.Method = c.ResolveMethod;
                 target.Pattern = c.ResolvePattern;
                 target.ApiUrl = c.ResolveApiUrl;
+                target.BaseUrl = c.ResolveBaseUrl;
                 target.Headers = c.ResolveHeaders;
                 break;
             case StreamTypes.OfficialPlayer:

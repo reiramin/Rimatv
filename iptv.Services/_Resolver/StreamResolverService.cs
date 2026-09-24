@@ -86,7 +86,8 @@ namespace iptv.Services._Resolver
             if (status is < 200 or >= 300 || body == null)
                 return Failure(ResolveErrorCodes.ResolveFailed, stream.RequiredRegion);
 
-            var url = ResolverExtraction.ExtractUrl(body, stream.ResolveMethod, stream.ResolvePattern, sourceUrl);
+            var url = ResolverExtraction.ExtractUrl(
+                body, stream.ResolveMethod, stream.ResolvePattern, stream.ResolveBaseUrl ?? sourceUrl);
             if (url == null)
                 return Failure(ResolveErrorCodes.ResolveFailed, stream.RequiredRegion);
 
@@ -101,7 +102,7 @@ namespace iptv.Services._Resolver
             if (!ResolverExtraction.IsPlaylist(playlist))
                 return Failure(ResolveErrorCodes.ResolveFailed, stream.RequiredRegion);
 
-            var expiry = ResolverExtraction.ParseExpiry(url);
+            var expiry = ResolverExtraction.ParseExpiry(url, now);
             var ttl = ResolverExtraction.CacheDuration(stream.ResolveTtlSeconds, expiry, now);
 
             return new StreamResolveResult

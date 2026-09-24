@@ -21,6 +21,8 @@ public class StreamOutputFields
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string Method { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string Pattern { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string ApiUrl { get; set; }
+    // Base for a relative extracted URL (defaults to the fetched page/API URL).
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string BaseUrl { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public Dictionary<string, string> Headers { get; set; }
 
     // type == officialPlayer: open in an iframe/WebView when embeddable, else a new tab/browser.

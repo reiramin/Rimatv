@@ -61,6 +61,7 @@ public sealed class StreamCandidate
     public string ResolveMethod { get; set; }
     public string ResolvePattern { get; set; }
     public string ResolveApiUrl { get; set; }
+    public string ResolveBaseUrl { get; set; }
     public Dictionary<string, string> ResolveHeaders { get; set; }
     public string PlayerUrl { get; set; }
     public bool? Embeddable { get; set; }

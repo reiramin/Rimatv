@@ -364,6 +364,7 @@ public class IptvSyncService(
                 .Set(q => q.ResolveMethod, doc.ResolveMethod)
                 .Set(q => q.ResolvePattern, doc.ResolvePattern)
                 .Set(q => q.ResolveApiUrl, doc.ResolveApiUrl)
+                .Set(q => q.ResolveBaseUrl, doc.ResolveBaseUrl)
                 .Set(q => q.ResolveHeaders, doc.ResolveHeaders)
                 .Set(q => q.ResolveTtlSeconds, doc.ResolveTtlSeconds)
                 .Set(q => q.IpBound, doc.IpBound)
@@ -523,6 +524,7 @@ public class IptvSyncService(
             ResolveMethod = external.ResolveMethod,
             ResolvePattern = external.ResolvePattern,
             ResolveApiUrl = external.ResolveApiUrl,
+            ResolveBaseUrl = external.ResolveBaseUrl,
             ResolveHeaders = external.ResolveHeaders,
             ResolveTtlSeconds = external.ResolveTtlSeconds,
             IpBound = external.IpBound,
@@ -532,7 +534,7 @@ public class IptvSyncService(
             DataHash = ComputeHash(url, userAgent, referer, type, quality.Normalized,
                 quality.Rank.ToString(), isAdaptive.ToString(), serverProbeUnreliable.ToString(), external.Feed ?? "",
                 requiredRegion ?? "", relayEligible.ToString(), external.PageUrl ?? "", external.ResolveMethod ?? "",
-                external.ResolvePattern ?? "", external.ResolveApiUrl ?? "",
+                external.ResolvePattern ?? "", external.ResolveApiUrl ?? "", external.ResolveBaseUrl ?? "",
                 string.Join(";", (external.ResolveHeaders ?? []).OrderBy(h => h.Key).Select(h => $"{h.Key}={h.Value}")),
                 external.ResolveTtlSeconds.ToString(), external.IpBound.ToString(), external.PlayerUrl ?? "",
                 external.Embeddable?.ToString() ?? "")

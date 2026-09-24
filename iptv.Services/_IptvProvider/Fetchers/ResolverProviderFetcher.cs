@@ -145,6 +145,7 @@ public class ResolverProviderFetcher(ILogger<ResolverProviderFetcher> _logger)
             ResolveMethod = ladder ? e.Method : null,
             ResolvePattern = ladder ? e.Pattern : null,
             ResolveApiUrl = ladder ? e.ApiUrl : null,
+            ResolveBaseUrl = ladder && !string.IsNullOrWhiteSpace(e.BaseUrl) ? e.BaseUrl.Trim() : null,
             ResolveHeaders = ladder && headers.Count > 0 ? headers : null,
             ResolveTtlSeconds = ladder ? Math.Max(0, e.TtlSeconds) : 0,
             IpBound = e.IpBound,

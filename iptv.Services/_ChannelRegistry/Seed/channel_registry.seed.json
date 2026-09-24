@@ -8896,6 +8896,29 @@
     },
     "requiresIranianIp": false,
     "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "CNNTurk.tr",
+    "name": "CNN Türk",
+    "nameFa": null,
+    "curatedCountry": "tr",
+    "curatedRank": 1002,
+    "sourceCountry": "TR",
+    "categories": [
+     "news"
+    ],
+    "aliases": [
+     "CNN Türk",
+     "CNN Turk",
+     "CNNTürk"
+    ],
+    "knownStreams": {
+     "iptvOrg": 0,
+     "shayanline": 0,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
    }
   ],
   "az": [
@@ -15379,6 +15402,27 @@
     },
     "requiresIranianIp": false,
     "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "GlobalNews.ca",
+    "name": "Global News",
+    "nameFa": null,
+    "curatedCountry": "ca",
+    "curatedRank": 18,
+    "sourceCountry": "CA",
+    "categories": [
+     "news"
+    ],
+    "aliases": [
+     "Global News"
+    ],
+    "knownStreams": {
+     "iptvOrg": 0,
+     "shayanline": 0,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
    }
   ],
   "pk": [
@@ -15758,6 +15802,70 @@
     ],
     "knownStreams": {
      "iptvOrg": 1,
+     "shayanline": 0,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "GeoNews.pk",
+    "name": "Geo News",
+    "nameFa": null,
+    "curatedCountry": "pk",
+    "curatedRank": 1002,
+    "sourceCountry": "PK",
+    "categories": [
+     "news"
+    ],
+    "aliases": [
+     "Geo News",
+     "GEO News"
+    ],
+    "knownStreams": {
+     "iptvOrg": 0,
+     "shayanline": 0,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "ExpressNews.pk",
+    "name": "Express News",
+    "nameFa": null,
+    "curatedCountry": "pk",
+    "curatedRank": 1003,
+    "sourceCountry": "PK",
+    "categories": [
+     "news"
+    ],
+    "aliases": [
+     "Express News"
+    ],
+    "knownStreams": {
+     "iptvOrg": 0,
+     "shayanline": 0,
+     "freeTv": 0
+    },
+    "requiresIranianIp": false,
+    "geoBlockedEverywhere": false
+   },
+   {
+    "canonicalId": "ARYDigital.pk",
+    "name": "ARY Digital",
+    "nameFa": null,
+    "curatedCountry": "pk",
+    "curatedRank": 1004,
+    "sourceCountry": "PK",
+    "categories": [
+     "general"
+    ],
+    "aliases": [
+     "ARY Digital"
+    ],
+    "knownStreams": {
+     "iptvOrg": 0,
      "shayanline": 0,
      "freeTv": 0
     },

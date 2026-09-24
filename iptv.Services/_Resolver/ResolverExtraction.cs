@@ -143,8 +143,18 @@ public static partial class ResolverExtraction
     private static bool LooksLikeLiteral(string value, IPAddress ip)
         => ip.AddressFamily == AddressFamily.InterNetworkV6 ? value.Contains(':') : value.Count(c => c == '.') == 3;
 
-    /// <summary>Token expiry from common query parameters (unix seconds or ms, Akamai hdnts exp=).</summary>
-    public static DateTime? ParseExpiry(string url)
+    /// <summary>
+    /// Token expiry from common query parameters (unix seconds or ms, Akamai hdnts exp=). With
+    /// <paramref name="now"/>, an expiry already in the past is ignored: some CDNs (e.g. Show TV's)
+    /// carry a stale e= value they do not enforce.
+    /// </summary>
+    public static DateTime? ParseExpiry(string url, DateTime? now = null)
+    {
+        var expiry = ParseExpiryRaw(url);
+        return now.HasValue && expiry <= now.Value ? null : expiry;
+    }
+
+    private static DateTime? ParseExpiryRaw(string url)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
             return null;

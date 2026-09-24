@@ -21,6 +21,10 @@ public sealed class ResolverEntry
     [JsonPropertyName("pattern")] public string Pattern { get; set; }
     [JsonPropertyName("apiUrl")] public string ApiUrl { get; set; }
 
+    // Base for a RELATIVE extracted URL when it differs from the fetched page/API (e.g. CNN Türk's
+    // API returns a path on https://live.duhnet.tv).
+    [JsonPropertyName("baseUrl")] public string BaseUrl { get; set; }
+
     // Only what the site's own player sends (e.g. Referer).
     [JsonPropertyName("headers")] public Dictionary<string, string> Headers { get; set; } = [];
 
