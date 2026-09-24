@@ -133,13 +133,13 @@ public class IptvSyncService(
         var channelStats = await SyncChannelsAsync(
             provider, fetched, registryIndex, playableStreamsByChannel, cancellationToken);
 
-        // Map external channel key -> local ChannelId (crash-proof against duplicate keys).
-        var localChannelIdByExternalId = (await _channelRepository.GetByProviderAsync(provider.PublicKey, cancellationToken))
+        // Map external channel key -> persisted channel (crash-proof against duplicate keys).
+        var persistedByExternalId = (await _channelRepository.GetByProviderAsync(provider.PublicKey, cancellationToken))
             .GroupBy(c => c.ExternalId, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.First().ChannelId, StringComparer.Ordinal);
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
 
         var streamStats = await SyncStreamsAsync(
-            provider, fetched, registryIndex, playableStreamsByChannel, localChannelIdByExternalId,
+            provider, fetched, registryIndex, playableStreamsByChannel, persistedByExternalId,
             cancellationToken);
 
         var guardTripped = channelStats.GuardTripped || streamStats.GuardTripped;
@@ -260,23 +260,25 @@ public class IptvSyncService(
         ProviderFetchResult fetched,
         ChannelRegistryIndex registryIndex,
         Dictionary<string, List<ExternalStream>> playableStreamsByChannel,
-        Dictionary<string, string> localChannelIdByExternalId,
+        Dictionary<string, Channels> persistedByExternalId,
         CancellationToken cancellationToken)
     {
         var stats = new SyncStats();
 
+        var canonicalByExternalId = persistedByExternalId.ToDictionary(
+            kv => kv.Key, kv => kv.Value.CanonicalId, StringComparer.Ordinal);
+
         var normalized = new List<Streams>();
         foreach (var (channelKey, streams) in playableStreamsByChannel)
         {
-            if (!localChannelIdByExternalId.TryGetValue(channelKey, out var localChannelId))
+            if (!persistedByExternalId.TryGetValue(channelKey, out var persisted))
                 continue; // channel was not persisted (filtered out)
 
-            var requiresIrByRegistry = registryIndex.ByCanonicalId
-                .TryGetValue(ResolveCanonicalForKey(channelKey, streams, registryIndex, provider), out var reg)
-                && reg.RequiresIranianIp;
+            var reg = ResolveRegistryEntryForKey(channelKey, canonicalByExternalId, registryIndex);
+            var requiresIrByRegistry = reg?.RequiresIranianIp == true;
 
             foreach (var s in streams)
-                normalized.Add(NormalizeStream(provider, channelKey, localChannelId, s, requiresIrByRegistry));
+                normalized.Add(NormalizeStream(provider, channelKey, persisted.ChannelId, s, requiresIrByRegistry));
         }
 
         // Stream ExternalId already includes the channel key; dedupe crash-proof.
@@ -399,11 +401,21 @@ public class IptvSyncService(
                ?? $"ext:{provider.PublicKey}:{external.Id.Trim()}";
     }
 
-    private static string ResolveCanonicalForKey(
-        string channelKey, List<ExternalStream> streams, ChannelRegistryIndex registryIndex, IptvProviders provider)
+    /// <summary>
+    /// Registry entry of a provider channel, looked up by the CANONICAL id persisted on the channel
+    /// (not by the external key: famelack nanoids and name-matched M3U channels have external keys
+    /// that are not registry ids).
+    /// </summary>
+    internal static ChannelRegistry ResolveRegistryEntryForKey(
+        string channelKey,
+        IReadOnlyDictionary<string, string> canonicalByExternalId,
+        ChannelRegistryIndex registryIndex)
     {
-        // channelKey is the external channel id (iptv-org id / tvg-id / nanoid). Registry lookup by id.
-        return registryIndex.ResolveCanonical(channelKey, null, null) ?? channelKey;
+        if (!canonicalByExternalId.TryGetValue(channelKey, out var canonicalId) ||
+            string.IsNullOrWhiteSpace(canonicalId))
+            return null;
+
+        return registryIndex.ByCanonicalId.GetValueOrDefault(canonicalId);
     }
 
     private static Streams NormalizeStream(
@@ -424,9 +436,7 @@ public class IptvSyncService(
             external.GeoBlocked ||
             requiresIrByRegistry ||
             IsIranianOnlyCdn(url) ||
-            external.Labels.Any(l =>
-                l.Contains("IR", StringComparison.OrdinalIgnoreCase) ||
-                l.Contains("Geo", StringComparison.OrdinalIgnoreCase));
+            external.Labels.Any(l => IsIranLabel(l) || IsGeoLabel(l));
 
         var externalId = !string.IsNullOrWhiteSpace(external.StableExternalId)
             ? external.StableExternalId
@@ -488,6 +498,21 @@ public class IptvSyncService(
         return Uri.TryCreate(u, UriKind.Absolute, out var uri) &&
                (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
+
+    /// <summary>
+    /// "[IR]"-style label: the exact token IR (case-insensitive) or a label mentioning Iran.
+    /// A substring match on "IR" would also hit unrelated labels such as "IRIB".
+    /// </summary>
+    internal static bool IsIranLabel(string label)
+    {
+        var l = label?.Trim();
+        return !string.IsNullOrEmpty(l) &&
+               (l.Equals("IR", StringComparison.OrdinalIgnoreCase) ||
+                l.Contains("Iran", StringComparison.OrdinalIgnoreCase));
+    }
+
+    internal static bool IsGeoLabel(string label)
+        => label?.Contains("Geo", StringComparison.OrdinalIgnoreCase) == true;
 
     private static bool IsIngestable(
         ExternalChannel c, HashSet<string> blocked, ChannelRegistryIndex registryIndex)
