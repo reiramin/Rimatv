@@ -15,10 +15,17 @@ namespace iptv.Services._IptvSync;
 /// </summary>
 public static class IngestScopePolicy
 {
+    /// <summary>Result of <see cref="Plan"/>.</summary>
+    public sealed record ScopePlan(List<Channels> ToDeactivate, HashSet<string> OutOfScopeChannelIds);
+
+    /// <summary>
+    /// Whether a freshly fetched channel is kept, decided with its NEWLY computed canonical id.
+    /// Scope is not applied when the registry is empty (e.g. the seed failed).
+    /// </summary>
     public static bool Keep(IngestScope scope, ChannelRegistryIndex registry, IptvProviders provider,
         ExternalChannel channel, string canonicalId)
     {
-        if (scope == IngestScope.All)
+        if (scope == IngestScope.All || registry.ByCanonicalId.Count == 0)
             return true;
 
         if (provider?.Kind == ProviderKind.Resolver || IsPersianSource(provider, channel))
@@ -27,21 +34,26 @@ public static class IngestScopePolicy
         return canonicalId != null && registry.ByCanonicalId.ContainsKey(canonicalId);
     }
 
-    /// <summary>Same rule for an already persisted channel (famelack ir entries carry country IR).</summary>
-    public static bool KeepExisting(IngestScope scope, ChannelRegistryIndex registry, IptvProviders provider,
-        Channels existing)
+    /// <summary>
+    /// Existing channels that this sync fetched but decided to leave out of scope. They are
+    /// DEACTIVATED (never deleted: ChannelId / StreamId, probe results, reports and AdminDisabled
+    /// survive if they come back into scope). A channel kept by this sync is never touched, whatever
+    /// canonical id is stored on it. Channels that were not fetched at all are left to the normal
+    /// (guarded) deactivation path.
+    /// </summary>
+    public static ScopePlan Plan(IngestScope scope, int registryCount,
+        IEnumerable<string> keptExternalIds, IEnumerable<string> ingestableExternalIds, IEnumerable<Channels> existing)
     {
-        if (scope == IngestScope.All || provider?.Kind == ProviderKind.Resolver)
-            return true;
+        if (scope == IngestScope.All || registryCount == 0)
+            return new ScopePlan([], new HashSet<string>(StringComparer.Ordinal));
 
-        if (provider?.Name?.StartsWith("shayanline", StringComparison.OrdinalIgnoreCase) == true)
-            return true;
+        var kept = new HashSet<string>(keptExternalIds, StringComparer.Ordinal);
+        var outOfScope = new HashSet<string>(ingestableExternalIds.Where(id => !kept.Contains(id)), StringComparer.Ordinal);
 
-        if (provider?.Kind == ProviderKind.FamelackJson &&
-            string.Equals(existing.Country, "IR", StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        return existing.CanonicalId != null && registry.ByCanonicalId.ContainsKey(existing.CanonicalId);
+        var docs = existing.Where(c => c.ExternalId != null && outOfScope.Contains(c.ExternalId)).ToList();
+        return new ScopePlan(
+            docs.Where(c => !c.Inactive).ToList(),
+            docs.Select(c => c.ChannelId).ToHashSet(StringComparer.Ordinal));
     }
 
     public static bool IsPersianSource(IptvProviders provider, ExternalChannel channel)

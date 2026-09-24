@@ -143,7 +143,7 @@ public class IptvSyncService(
 
         var streamStats = await SyncStreamsAsync(
             provider, fetched, registryIndex, playableStreamsByChannel, persistedByExternalId,
-            cancellationToken);
+            channelStats, cancellationToken);
 
         var guardTripped = channelStats.GuardTripped || streamStats.GuardTripped;
 
@@ -169,6 +169,11 @@ public class IptvSyncService(
         // Newly synced data changes the user-facing lists.
         ChannelService.InvalidateSharedLiteCache();
 
+        if (channelStats.ScopeDeactivated > 0 || streamStats.ScopeDeactivated > 0)
+            _logger.LogInformation(
+                "Ingest scope Registry: deactivated {Channels} out-of-scope channels and {Streams} of their streams ({Provider}).",
+                channelStats.ScopeDeactivated, streamStats.ScopeDeactivated, provider.Name);
+
         // Free-tier budget (512 MB RAM): log memory per provider so ingest scopes can be compared.
         using (var process = System.Diagnostics.Process.GetCurrentProcess())
             _logger.LogInformation(
@@ -192,15 +197,19 @@ public class IptvSyncService(
     {
         var stats = new SyncStats();
 
-        var normalized = fetched.Channels
+        var ingestable = fetched.Channels
             .Where(c => !string.IsNullOrWhiteSpace(c.Id) && !string.IsNullOrWhiteSpace(c.Name))
             .GroupBy(c => c.Id.Trim(), StringComparer.Ordinal)
             .Select(g => g.First())
             .Where(c => playableStreamsByChannel.ContainsKey(c.Id.Trim()))   // >=1 playable stream
             .Where(c => IsIngestable(c, fetched.BlockedChannelIds, registryIndex))
             .Select(c => (External: c, Doc: NormalizeChannel(provider, c, registryIndex)))
-            .Where(x => IngestScopePolicy.Keep(_syncSettings?.IngestScope ?? IngestScope.Registry,
-                registryIndex, provider, x.External, x.Doc.CanonicalId))
+            .ToList();
+
+        // Scope is decided with the NEWLY computed canonical id.
+        var scope = _syncSettings?.IngestScope ?? IngestScope.Registry;
+        var normalized = ingestable
+            .Where(x => IngestScopePolicy.Keep(scope, registryIndex, provider, x.External, x.Doc.CanonicalId))
             .Select(x => x.Doc)
             .ToList();
 
@@ -209,26 +218,15 @@ public class IptvSyncService(
         var normalizedByExternalId = normalized
             .GroupBy(c => c.ExternalId, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        stats.KeptExternalIds = normalizedByExternalId.Keys.ToHashSet(StringComparer.Ordinal);
 
         var existing = await _channelRepository.GetByProviderAsync(provider.PublicKey, cancellationToken);
 
-        // Registry scope: channels (and their streams) outside the scope are deleted, not merely
-        // deactivated, so the M0 storage is actually freed. Only after a non-empty fetch.
-        var scope = _syncSettings?.IngestScope ?? IngestScope.Registry;
-        if (scope == IngestScope.Registry && normalized.Count > 0)
-        {
-            var outOfScope = existing
-                .Where(c => !IngestScopePolicy.KeepExisting(scope, registryIndex, provider, c))
-                .ToList();
-
-            if (outOfScope.Count > 0)
-            {
-                await DeleteChannelsWithStreamsAsync(outOfScope, cancellationToken);
-                stats.Deleted = outOfScope.Count;
-                var removed = outOfScope.Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
-                existing = existing.Where(c => !removed.Contains(c.Id)).ToList();
-            }
-        }
+        // Registry scope: fetched channels left out of scope are deactivated (not deleted).
+        var plan = IngestScopePolicy.Plan(scope, registryIndex.ByCanonicalId.Count,
+            stats.KeptExternalIds, ingestable.Select(x => x.Doc.ExternalId), existing);
+        stats.OutOfScopeChannelIds = plan.OutOfScopeChannelIds;
+        stats.ScopeDeactivated = plan.ToDeactivate.Count;
 
         var existingByExternalId = existing
             .GroupBy(c => c.ExternalId, StringComparer.Ordinal)
@@ -266,14 +264,22 @@ public class IptvSyncService(
             stats.Updated++;
         }
 
-        // Mass-deactivation guard.
-        var activeExisting = existing.Count(c => !c.Inactive);
+        foreach (var doc in plan.ToDeactivate)
+            writes.Add(new UpdateOneModel<Channels>(
+                Builders<Channels>.Filter.Eq(q => q.Id, doc.Id),
+                Builders<Channels>.Update
+                    .Set(q => q.Inactive, true)
+                    .Set(q => q.ModifiedMoment, DateTime.UtcNow)));
+
+        // Mass-deactivation guard (out-of-scope channels are handled above and not counted).
+        var activeExisting = existing.Count(c => !c.Inactive && !plan.OutOfScopeChannelIds.Contains(c.ChannelId));
         stats.GuardTripped = ShouldSkipDeactivation(normalized.Count, activeExisting);
 
         if (!stats.GuardTripped)
         {
             var removedIds = existing
-                .Where(c => !c.Inactive && !normalizedByExternalId.ContainsKey(c.ExternalId))
+                .Where(c => !c.Inactive && !normalizedByExternalId.ContainsKey(c.ExternalId) &&
+                            !plan.OutOfScopeChannelIds.Contains(c.ChannelId))
                 .Select(c => c.Id)
                 .ToList();
 
@@ -297,6 +303,7 @@ public class IptvSyncService(
         ChannelRegistryIndex registryIndex,
         Dictionary<string, List<ExternalStream>> playableStreamsByChannel,
         Dictionary<string, Channels> persistedByExternalId,
+        SyncStats channelStats,
         CancellationToken cancellationToken)
     {
         var stats = new SyncStats();
@@ -307,8 +314,10 @@ public class IptvSyncService(
         var normalized = new List<Streams>();
         foreach (var (channelKey, streams) in playableStreamsByChannel)
         {
-            if (!persistedByExternalId.TryGetValue(channelKey, out var persisted))
-                continue; // channel was not persisted (filtered out)
+            // Only channels kept by this sync (an out-of-scope channel doc still exists, inactive).
+            if (!channelStats.KeptExternalIds.Contains(channelKey) ||
+                !persistedByExternalId.TryGetValue(channelKey, out var persisted))
+                continue;
 
             var reg = ResolveRegistryEntryForKey(channelKey, canonicalByExternalId, registryIndex);
             var requiresIrByRegistry = reg?.RequiresIranianIp == true;
@@ -380,13 +389,29 @@ public class IptvSyncService(
             stats.Updated++;
         }
 
-        var activeExisting = existing.Count(s => !s.Inactive);
+        // Streams of out-of-scope channels follow their channel (deactivated, not deleted).
+        var outOfScope = existing
+            .Where(s => !s.Inactive && s.ChannelId != null && channelStats.OutOfScopeChannelIds.Contains(s.ChannelId) &&
+                        !normalizedByExternalId.ContainsKey(s.ExternalId))
+            .ToList();
+        foreach (var s in outOfScope)
+            writes.Add(new UpdateOneModel<Streams>(
+                Builders<Streams>.Filter.Eq(q => q.Id, s.Id),
+                Builders<Streams>.Update
+                    .Set(q => q.Inactive, true)
+                    .Set(q => q.ModifiedMoment, DateTime.UtcNow)));
+        stats.ScopeDeactivated = outOfScope.Count;
+        var outOfScopeIds = outOfScope.Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
+
+        var activeExisting = existing.Count(s => !s.Inactive && !outOfScopeIds.Contains(s.Id) &&
+                                                 !channelStats.OutOfScopeChannelIds.Contains(s.ChannelId ?? ""));
         stats.GuardTripped = ShouldSkipDeactivation(normalizedByExternalId.Count, activeExisting);
 
         if (!stats.GuardTripped)
         {
             var removedIds = existing
-                .Where(s => !s.Inactive && !normalizedByExternalId.ContainsKey(s.ExternalId))
+                .Where(s => !s.Inactive && !normalizedByExternalId.ContainsKey(s.ExternalId) &&
+                            !outOfScopeIds.Contains(s.Id))
                 .Select(s => s.Id)
                 .ToList();
 
@@ -682,22 +707,6 @@ public class IptvSyncService(
 
     #region Bulk / logging helpers
 
-    private async Task DeleteChannelsWithStreamsAsync(List<Channels> channels, CancellationToken ct)
-    {
-        foreach (var chunk in channels.Chunk(1000))
-        {
-            var channelIds = chunk.Select(c => c.ChannelId).ToList();
-            var ids = chunk.Select(c => c.Id).ToList();
-            // Physical deletes: Monjo's DeleteManyAsync is a soft delete (IsDeleted) that frees no
-            // storage and would collide with the unique (provider, externalId) index on re-insert.
-            await _streamRepository.RealDeleteManyAsync(s => channelIds.Contains(s.ChannelId), ct);
-            await _channelRepository.RealDeleteManyAsync(c => ids.Contains(c.Id), ct);
-        }
-
-        _logger.LogInformation("Ingest scope Registry: deleted {Count} out-of-scope channels and their streams.",
-            channels.Count);
-    }
-
     private static async Task BulkWriteAsync(
         IChannelRepository repo, List<WriteModel<Channels>> writes, CancellationToken ct)
     {
@@ -783,8 +792,10 @@ public class IptvSyncService(
         public int Inserted { get; set; }
         public int Updated { get; set; }
         public int Deactivated { get; set; }
-        public int Deleted { get; set; }
+        public int ScopeDeactivated { get; set; }
         public bool GuardTripped { get; set; }
+        public HashSet<string> KeptExternalIds { get; set; } = new(StringComparer.Ordinal);
+        public HashSet<string> OutOfScopeChannelIds { get; set; } = new(StringComparer.Ordinal);
     }
 
     #endregion
