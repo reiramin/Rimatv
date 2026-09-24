@@ -184,42 +184,26 @@ public class ChannelService(
 
     private (StreamCandidate Winner, List<FallbackStreamResult> Fallbacks) SelectForCanonical(
         IEnumerable<ChannelLiteProjection> group,
-        ILookup<string, StreamLiteProjection> streamsByChannel,
-        Dictionary<string, ProviderLite> providers,
+        ILookup<string, Streams> streamsByChannel,
+        Dictionary<string, ProviderInfo> providers,
         DateTime now)
     {
-        var candidates = new List<StreamCandidate>();
         string currentStreamId = null;
+        var streams = new List<Streams>();
+        var canonicalByChannel = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var channel in group)
         {
             if (currentStreamId == null && !string.IsNullOrEmpty(channel.CurrentStreamId))
                 currentStreamId = channel.CurrentStreamId;
 
-            foreach (var s in streamsByChannel[channel.ChannelId])
-            {
-                var provider = providers.GetValueOrDefault(s.ProviderPublicKey);
-                candidates.Add(new StreamCandidate
-                {
-                    StreamId = s.StreamId,
-                    ChannelId = s.ChannelId,
-                    CanonicalId = channel.CanonicalId,
-                    ProviderPublicKey = s.ProviderPublicKey,
-                    ProviderName = provider?.Name,
-                    ProviderPriority = provider?.Priority ?? 0,
-                    StreamUri = s.StreamUri,
-                    UserAgent = string.IsNullOrWhiteSpace(s.UserAgent) ? null : s.UserAgent,
-                    Referer = string.IsNullOrWhiteSpace(s.Referer) ? null : s.Referer,
-                    Quality = s.Quality,
-                    QualityRank = s.QualityRank,
-                    IsAdaptive = s.IsAdaptive,
-                    IsHealthy = s.IsHealthy,
-                    ServerProbeUnreliable = s.ServerProbeUnreliable,
-                    RecentReportCount = StreamCandidateFactory.RecentReportCount(s.RecentClientFailures, now),
-                    ClientFailingUntil = s.ClientFailingUntil
-                });
-            }
+            canonicalByChannel[channel.ChannelId] = channel.CanonicalId;
+            streams.AddRange(streamsByChannel[channel.ChannelId]);
         }
+
+        // Streams of an inactive (or deleted) provider are skipped by the factory.
+        var candidates = StreamCandidateFactory.FromActiveProviders(
+            streams, s => canonicalByChannel.GetValueOrDefault(s.ChannelId), providers, now);
 
         var ordered = _streamSelector.Order(candidates,
             new StreamSelectionContext { CurrentStreamId = currentStreamId, Now = now });
@@ -241,9 +225,9 @@ public class ChannelService(
     }
 
     private static ChannelLiteProjection PickDisplayChannel(
-        IEnumerable<ChannelLiteProjection> group, Dictionary<string, ProviderLite> providers)
+        IEnumerable<ChannelLiteProjection> group, Dictionary<string, ProviderInfo> providers)
         => group
-            .OrderByDescending(c => providers.GetValueOrDefault(c.ProviderPublicKey)?.Priority ?? 0)
+            .OrderByDescending(c => providers.TryGetValue(c.ProviderPublicKey ?? string.Empty, out var p) ? p.Priority : 0)
             .ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
             .First();
 
@@ -507,7 +491,7 @@ public class ChannelService(
         var streams = await _streamRepository
             .AsQueryable()
             .Where(q => !q.Inactive && !q.AdminDisabled)
-            .Select(q => new StreamLiteProjection
+            .Select(q => new Streams
             {
                 StreamId = q.StreamId,
                 ChannelId = q.ChannelId,
@@ -528,15 +512,10 @@ public class ChannelService(
         var providers = (await _providerRepository
                 .AsQueryable()
                 .Where(q => !q.Inactive)
-                .Select(q => new ProviderLite
-                {
-                    PublicKey = q.PublicKey,
-                    Name = q.Name,
-                    Priority = q.Priority
-                })
+                .Select(q => new { q.PublicKey, q.Name, q.Priority })
                 .ToListAsync(cancellationToken))
             .GroupBy(p => p.PublicKey)
-            .ToDictionary(g => g.Key, g => g.First());
+            .ToDictionary(g => g.Key, g => new ProviderInfo(g.First().Name, g.First().Priority));
 
         return new LiteData
         {
@@ -551,8 +530,8 @@ public class ChannelService(
     {
         public DateTime FetchedAt { get; init; }
         public List<ChannelLiteProjection> Channels { get; init; } = [];
-        public List<StreamLiteProjection> Streams { get; init; } = [];
-        public Dictionary<string, ProviderLite> Providers { get; init; } = [];
+        public List<Streams> Streams { get; init; } = [];
+        public Dictionary<string, ProviderInfo> Providers { get; init; } = [];
     }
 
     private sealed class ChannelLiteProjection
@@ -565,30 +544,6 @@ public class ChannelService(
         public string Category { get; set; }
         public string CurrentStreamId { get; set; }
         public string ProviderPublicKey { get; set; }
-    }
-
-    private sealed class StreamLiteProjection
-    {
-        public string StreamId { get; set; }
-        public string ChannelId { get; set; }
-        public string ProviderPublicKey { get; set; }
-        public string StreamUri { get; set; }
-        public string UserAgent { get; set; }
-        public string Referer { get; set; }
-        public string Quality { get; set; }
-        public int QualityRank { get; set; }
-        public bool IsAdaptive { get; set; }
-        public bool IsHealthy { get; set; }
-        public bool ServerProbeUnreliable { get; set; }
-        public DateTime? ClientFailingUntil { get; set; }
-        public List<ClientFailureReport> RecentClientFailures { get; set; }
-    }
-
-    private sealed class ProviderLite
-    {
-        public string PublicKey { get; set; }
-        public string Name { get; set; }
-        public int Priority { get; set; }
     }
 
     #endregion

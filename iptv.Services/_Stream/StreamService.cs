@@ -176,12 +176,9 @@ public class StreamService(
 
         var providers = await LoadProvidersAsync();
 
-        var candidates = streams.Select(s =>
-        {
-            providers.TryGetValue(s.ProviderPublicKey, out var provider);
-            return StreamCandidateFactory.FromDoc(
-                s, canonical ?? channel.ChannelId, provider.Priority, provider.Name, now);
-        });
+        // Streams of an inactive (or deleted) provider are skipped by the factory.
+        var candidates = StreamCandidateFactory.FromActiveProviders(
+            streams, _ => canonical ?? channel.ChannelId, providers, now);
 
         var context = new StreamSelectionContext
         {
@@ -193,13 +190,13 @@ public class StreamService(
         return _streamSelector.Order(candidates, context);
     }
 
-    private async Task<Dictionary<string, (string Name, int Priority)>> LoadProvidersAsync()
+    private async Task<Dictionary<string, ProviderInfo>> LoadProvidersAsync()
         => (await _providerRepository.AsQueryable()
                 .Where(p => !p.Inactive)
                 .Select(p => new { p.PublicKey, p.Name, p.Priority })
                 .ToListAsync())
             .GroupBy(p => p.PublicKey)
-            .ToDictionary(g => g.Key, g => (g.First().Name, g.First().Priority));
+            .ToDictionary(g => g.Key, g => new ProviderInfo(g.First().Name, g.First().Priority));
 
     private async Task StickCurrentStreamAsync(StreamCandidate winner)
     {

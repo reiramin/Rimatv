@@ -2,6 +2,9 @@ using iptv.Domain.Collections;
 
 namespace iptv.Services._Stream.Selection;
 
+/// <summary>Name and priority of an ACTIVE provider, keyed by provider public key.</summary>
+public readonly record struct ProviderInfo(string Name, int Priority);
+
 /// <summary>Builds <see cref="StreamCandidate"/>s from persisted streams and computes the derived
 /// client-failure signals the selector needs.</summary>
 public static class StreamCandidateFactory
@@ -15,6 +18,29 @@ public static class StreamCandidateFactory
             .Select(r => r.UserPublicKey)
             .Distinct(StringComparer.Ordinal)
             .Count();
+    }
+
+    /// <summary>
+    /// Builds candidates for streams whose provider is in <paramref name="activeProviders"/>.
+    /// A stream whose provider is inactive or deleted is skipped — never offered with priority 0.
+    /// </summary>
+    public static List<StreamCandidate> FromActiveProviders(
+        IEnumerable<Streams> streams,
+        Func<Streams, string> canonicalOf,
+        IReadOnlyDictionary<string, ProviderInfo> activeProviders,
+        DateTime now)
+    {
+        var result = new List<StreamCandidate>();
+        foreach (var s in streams)
+        {
+            if (string.IsNullOrEmpty(s.ProviderPublicKey) ||
+                !activeProviders.TryGetValue(s.ProviderPublicKey, out var provider))
+                continue;
+
+            result.Add(FromDoc(s, canonicalOf(s), provider.Priority, provider.Name, now));
+        }
+
+        return result;
     }
 
     public static StreamCandidate FromDoc(
