@@ -53,6 +53,11 @@ namespace iptv.Services._Resolver
             if (stream.Type != StreamTypes.Resolve)
                 throw new BadRequestException("This stream does not need resolving.");
 
+            // Declared IP-bound: a server-side token would never play for the user; answer before
+            // any upstream fetch (the channel's clientResolve / officialPlayer / youtube rungs remain).
+            if (stream.IpBound)
+                return Failure(ResolveErrorCodes.IpBound, stream.RequiredRegion);
+
             var now = DateTime.UtcNow;
             StreamResolveResult result;
             try

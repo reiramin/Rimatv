@@ -52,6 +52,11 @@ public class ResolverProviderFetcher(ILogger<ResolverProviderFetcher> _logger)
 
         foreach (var e in catalog.Resolvers ?? [])
         {
+            // A declared IP-bound token can never be resolved server-side for the user: no resolve
+            // stream is created; the channel keeps its clientResolve / officialPlayer / youtube rungs.
+            if (e.IpBound && (string.IsNullOrWhiteSpace(e.Type) ? e.Method != ResolverMethods.YouTubeLive : e.Type.Trim() == StreamTypes.Resolve))
+                continue;
+
             var error = TryBuildStream(providerPublicKey, e, out var stream);
             if (error != null)
             {
