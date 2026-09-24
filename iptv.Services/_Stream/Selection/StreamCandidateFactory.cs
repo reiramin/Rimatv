@@ -1,3 +1,4 @@
+using iptv.Services._Stream.Reporting;
 using iptv.Domain.Collections;
 
 namespace iptv.Services._Stream.Selection;
@@ -13,11 +14,7 @@ public static class StreamCandidateFactory
     {
         if (reports == null) return 0;
         var since = now - StreamFailureConstants.ReportWindow;
-        return reports
-            .Where(r => r.Moment >= since && !string.IsNullOrEmpty(r.UserPublicKey))
-            .Select(r => r.UserPublicKey)
-            .Distinct(StringComparer.Ordinal)
-            .Count();
+        return ReporterCounting.Distinct(reports.Where(r => r.Moment >= since));
     }
 
     /// <summary>

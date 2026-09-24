@@ -88,6 +88,10 @@ public class Streams : BaseDocument
 public class ClientFailureReport
 {
     public string UserPublicKey { get; set; }
+
+    // Anonymous reports: the same client's key under the previous day's salt (see ReporterCounting).
+    public string PreviousUserPublicKey { get; set; }
+
     public DateTime Moment { get; set; }
     public string Reason { get; set; }
 }

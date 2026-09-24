@@ -70,16 +70,19 @@ public class StreamService(
     }
 
     public async Task<StreamReportFailureResult> ReportStreamFailureAsync(
-        StreamReportFailureUpdate update, string anonymousReporterKey = null)
+        StreamReportFailureUpdate update, ReporterIdentity anonymousReporter = null)
     {
         var stream = await _streamRepository.GetByStreamIdAsync(update.StreamId)
                      ?? throw new NotFoundException("Stream not found.");
 
         var now = DateTime.UtcNow;
         // Anonymous clients are keyed by SHA256(ip + daily salt) so distinct users are still counted.
-        var userKey = CurrentRequestContext.User?.PublicKey ?? anonymousReporterKey ?? "anonymous";
+        var user = CurrentRequestContext.User?.PublicKey;
+        var reporter = user != null
+            ? new ReporterIdentity(user, null)
+            : anonymousReporter ?? new ReporterIdentity("anonymous", null);
 
-        await RecordFailureAsync(stream, userKey, update.Reason, now);
+        await RecordFailureAsync(stream, reporter, update.Reason, now);
 
         var channel = await _channelRepository.GetByChannelIdAsync(stream.ChannelId);
 
@@ -247,7 +250,7 @@ public class StreamService(
     }
 
     private async Task RecordFailureAsync(
-        Streams stream, string userKey, StreamFailureReason reason, DateTime now)
+        Streams stream, ReporterIdentity reporter, StreamFailureReason reason, DateTime now)
     {
         // Prune reports older than the decay window, then append this one.
         var recent = (stream.RecentClientFailures ?? [])
@@ -256,16 +259,14 @@ public class StreamService(
 
         recent.Add(new ClientFailureReport
         {
-            UserPublicKey = userKey,
+            UserPublicKey = reporter.Key,
+            PreviousUserPublicKey = reporter.PreviousKey,
             Moment = now,
             Reason = reason.ToString()
         });
 
-        var distinctInWindow = recent
-            .Where(r => r.Moment >= now - StreamFailureConstants.ReportWindow)
-            .Select(r => r.UserPublicKey)
-            .Distinct(StringComparer.Ordinal)
-            .Count();
+        var distinctInWindow = ReporterCounting.Distinct(
+            recent.Where(r => r.Moment >= now - StreamFailureConstants.ReportWindow));
 
         var updateDef = Builders<Streams>.Update
             .Inc(q => q.ClientFailureCount, 1)
