@@ -4,6 +4,7 @@ using System.Text.Json;
 using iptv.Domain.Collections;
 using iptv.Domain.Repositories.Contracts;
 using iptv.Services._Canonical;
+using iptv.Services._Channel.Playability;
 using iptv.Services._ChannelRegistry;
 using iptv.Services._ChannelRegistry.Seed;
 using Microsoft.Extensions.Configuration;
@@ -33,6 +34,10 @@ public class StartupInitializer(IServiceProvider _serviceProvider, ILogger<Start
         var registryRepo = sp.GetRequiredService<IChannelRegistryRepository>();
         var migrationRepo = sp.GetRequiredService<IMigrationRepository>();
         var config = sp.GetRequiredService<IConfiguration>();
+
+        var baseUrlWarning = ResolveBase.StartupWarning(config["AppSettings:BaseUrl"]);
+        if (baseUrlWarning != null)
+            _logger.LogWarning("{BaseUrlWarning}", baseUrlWarning);
 
         // Loading every channel and stream is expensive on the free host, which restarts often:
         // dedupe runs once (marker "dedupe-v1"), or again when a unique index hits duplicate keys.

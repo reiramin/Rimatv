@@ -15,6 +15,9 @@ builder.Services.AddSwagger();
 
 builder.Services.AddMemoryCache();
 
+// resolveUrl falls back to the request host when AppSettings:BaseUrl is unset (ResolveBase).
+builder.Services.AddHttpContextAccessor();
+
 // Outbound bandwidth on the free host is capped (5 GB/month): gzip every JSON response.
 builder.Services.AddGzipResponseCompression();
 builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.ResponseCompressionOptions>(

@@ -3,6 +3,7 @@ using iptv.Services._Channel.DTOs.Results;
 using iptv.Services._Common.Settings;
 using iptv.Services._Stream.Selection;
 using iptv.Services._Stream.Urls;
+using Microsoft.AspNetCore.Http;
 using Utilities.Constants;
 using Utilities.Models.Settings;
 
@@ -16,13 +17,23 @@ public interface IStreamOutputMapper
     string VpnHelpUrl { get; }
 }
 
-public class StreamOutputMapper(AppSettings _appSettings, RelaySettings _relaySettings, ClientSettings _clientSettings)
+public class StreamOutputMapper(
+    AppSettings _appSettings, RelaySettings _relaySettings, ClientSettings _clientSettings,
+    IHttpContextAccessor _httpContextAccessor)
     : IStreamOutputMapper, RegisterMode.ISingletonDependency
 {
     public string VpnHelpUrl => _clientSettings?.VpnHelpUrl;
 
     public T Fill<T>(T target, StreamCandidate c) where T : StreamOutputFields
-        => Fill(target, c, _appSettings?.BaseUrl, _relaySettings, DateTime.UtcNow);
+        => Fill(target, c, CurrentBaseUrl(), _relaySettings, DateTime.UtcNow);
+
+    // AppSettings:BaseUrl, or the incoming request's scheme/host when it is empty or the placeholder.
+    private string CurrentBaseUrl()
+    {
+        var request = _httpContextAccessor?.HttpContext?.Request;
+        return ResolveBase.Choose(_appSettings?.BaseUrl,
+            request?.Headers["X-Forwarded-Proto"].ToString(), request?.Scheme, request?.Host.Value);
+    }
 
     internal static T Fill<T>(T target, StreamCandidate c, string baseUrl, RelaySettings relay, DateTime now)
         where T : StreamOutputFields
