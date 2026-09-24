@@ -8,7 +8,8 @@ namespace iptv.Services._IptvSync;
 /// <summary>
 /// Which provider channels are persisted (§5.2, config Sync:IngestScope).
 ///   Registry (default): only channels whose canonical id is a registry entry, plus EVERYTHING from
-///                       the Persian providers (shayanline, and famelack's ir file).
+///                       the Persian providers (shayanline, and famelack's ir file) and every
+///                       Persian-language channel (fas / prs, or Persian / Farsi / Dari names).
 ///   All:                every channel with a playable stream (previous behaviour).
 /// The app only consumes curated channels, so Registry cuts DB size, sync time, lite-cache memory
 /// and response size.
@@ -31,8 +32,21 @@ public static class IngestScopePolicy
         if (provider?.Kind == ProviderKind.Resolver || IsPersianSource(provider, channel))
             return true;
 
+        // Persian-language channels (e.g. Afghan Dari channels) are core content for our users.
+        if (channel?.Languages?.Any(IsPersianLanguage) == true)
+            return true;
+
         return canonicalId != null && registry.ByCanonicalId.ContainsKey(canonicalId);
     }
+
+    // ISO 639-3 codes (iptv-org feeds) and the language names used in tvg-language.
+    private static readonly HashSet<string> PersianLanguages = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "fas", "prs", "pes", "per", "fa", "Persian", "Farsi", "Dari"
+    };
+
+    public static bool IsPersianLanguage(string language)
+        => !string.IsNullOrWhiteSpace(language) && PersianLanguages.Contains(language.Trim());
 
     /// <summary>
     /// Existing channels that this sync fetched but decided to leave out of scope. They are
