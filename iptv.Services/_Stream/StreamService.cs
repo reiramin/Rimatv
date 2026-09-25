@@ -1,9 +1,12 @@
 using iptv.Domain.Collections;
 using iptv.Domain.Repositories.Contracts;
+using iptv.Services._Channel.Playability;
+using iptv.Services._ChannelRegistry.Contracts;
 using iptv.Services._IptvNotifier.Contracts;
 using iptv.Services._Stream.Contracts;
 using iptv.Services._Stream.DTOs.Results;
 using iptv.Services._Stream.DTOs.Updates;
+using iptv.Services._Stream.Reporting;
 using iptv.Services._Stream.Selection;
 using MongoDB.Driver;
 using MongoDB.Driver.Linq;
@@ -18,7 +21,9 @@ public class StreamService(
     IChannelRepository _channelRepository,
     IIptvProviderRepository _providerRepository,
     IStreamSelector _streamSelector,
-    IIptvEventPublisher _eventPublisher)
+    IIptvEventPublisher _eventPublisher,
+    IChannelRegistryService _registryService,
+    IStreamOutputMapper _outputMapper)
     : IStreamService, RegisterMode.IScopedDependency
 {
     public async Task<List<StreamFilteredResult>> GetByChannelAsync(GetGlobalIdUpdate channelId)
@@ -42,7 +47,7 @@ public class StreamService(
                       ?? throw new NotFoundException("Channel not found.");
 
         var now = DateTime.UtcNow;
-        var ordered = await SelectCanonicalAsync(channel, now, [], null);
+        var ordered = await SelectCanonicalAsync(channel, now, []);
 
         if (ordered.Count == 0)
             throw new NotFoundException("No playable stream is currently available for this channel.");
@@ -50,7 +55,7 @@ public class StreamService(
         var winner = ordered[0];
         await StickCurrentStreamAsync(winner);
 
-        return new StreamPlaybackResult
+        return _outputMapper.Fill(new StreamPlaybackResult
         {
             ChannelId = channel.ChannelId,
             CanonicalId = channel.CanonicalId,
@@ -58,32 +63,37 @@ public class StreamService(
             StreamUri = winner.StreamUri,
             UserAgent = winner.UserAgent,
             Referer = winner.Referer,
-            Type = winner.StreamUri.Contains(".m3u8", StringComparison.OrdinalIgnoreCase) ? "hls" : "direct",
             Quality = winner.Quality,
             ProviderName = winner.ProviderName,
             Fallbacks = ToFallbacks(ordered.Skip(1).Take(3))
-        };
+        }, winner);
     }
 
-    public async Task<StreamReportFailureResult> ReportStreamFailureAsync(StreamReportFailureUpdate update)
+    public async Task<StreamReportFailureResult> ReportStreamFailureAsync(
+        StreamReportFailureUpdate update, ReporterIdentity anonymousReporter = null)
     {
         var stream = await _streamRepository.GetByStreamIdAsync(update.StreamId)
                      ?? throw new NotFoundException("Stream not found.");
 
         var now = DateTime.UtcNow;
-        var userKey = CurrentRequestContext.User?.PublicKey ?? "anonymous";
+        // Anonymous clients are keyed by SHA256(ip + daily salt) so distinct users are still counted.
+        var user = CurrentRequestContext.User?.PublicKey;
+        var reporter = user != null
+            ? new ReporterIdentity(user, null)
+            : anonymousReporter ?? new ReporterIdentity("anonymous", null);
 
-        await RecordFailureAsync(stream, userKey, update.Reason, now);
+        await RecordFailureAsync(stream, reporter, update.Reason, now);
 
         var channel = await _channelRepository.GetByChannelIdAsync(stream.ChannelId);
 
-        var exclude = new HashSet<string>(update.ExcludeStreamIds ?? [], StringComparer.Ordinal)
-        {
-            stream.StreamId // never re-offer the broken stream
-        };
+        // Only exclusions that belong to this canonical channel count (never re-offer the reported
+        // stream); ids of other channels must not influence the USE_VPN rules.
+        var channelStreams = channel != null ? await LoadCanonicalStreamsAsync(channel) : [stream];
+        var excludedDocs = ReportFailureOutcome.ScopeExcluded(update.ExcludeStreamIds, channelStreams, stream);
+        var exclude = excludedDocs.Select(s => s.StreamId).ToHashSet(StringComparer.Ordinal);
 
         var ordered = channel != null
-            ? await SelectCanonicalAsync(channel, now, exclude, stream)
+            ? await OrderCanonicalAsync(channel, channelStreams, now, exclude)
             : [];
 
         var replacement = ordered.FirstOrDefault();
@@ -96,18 +106,32 @@ public class StreamService(
 
         if (replacement == null)
         {
-            return new StreamReportFailureResult
+            var decision = ReportFailureOutcome.Decide(stream, excludedDocs, update.Reason, now);
+
+            var result = new StreamReportFailureResult
             {
                 Found = false,
-                ErrorCode = "NoAlternativeStream",
+                ErrorCode = ReportFailureOutcome.NoAlternativeStream,
                 ChannelId = channel?.ChannelId ?? stream.ChannelId,
                 CanonicalId = channel?.CanonicalId
             };
+
+            if (decision.UseVpn)
+            {
+                var (en, fa) = ChannelStatusRules.VpnMessages(decision.RequiredRegions);
+                result.ErrorCode = ChannelStatusRules.UseVpn;
+                result.RequiredRegions = decision.RequiredRegions;
+                result.Message = en;
+                result.MessageFa = fa;
+                result.VpnHelpUrl = string.IsNullOrWhiteSpace(_outputMapper.VpnHelpUrl) ? null : _outputMapper.VpnHelpUrl;
+            }
+
+            return result;
         }
 
         await StickCurrentStreamAsync(replacement);
 
-        return new StreamReportFailureResult
+        return _outputMapper.Fill(new StreamReportFailureResult
         {
             Found = true,
             ChannelId = replacement.ChannelId,
@@ -116,11 +140,10 @@ public class StreamService(
             StreamUri = replacement.StreamUri,
             UserAgent = replacement.UserAgent,
             Referer = replacement.Referer,
-            Type = replacement.StreamUri.Contains(".m3u8", StringComparison.OrdinalIgnoreCase) ? "hls" : "direct",
             Quality = replacement.Quality,
             ProviderName = replacement.ProviderName,
             Fallbacks = ToFallbacks(ordered.Skip(1).Take(3))
-        };
+        }, replacement);
     }
 
     public async Task<StreamFilteredResult> ActivateAsync(StreamActivateUpdate update)
@@ -155,11 +178,14 @@ public class StreamService(
     #region Canonical, cross-provider selection
 
     private async Task<IReadOnlyList<StreamCandidate>> SelectCanonicalAsync(
-        Channels channel, DateTime now, HashSet<string> exclude, Streams reportedStream)
+        Channels channel, DateTime now, HashSet<string> exclude)
+        => await OrderCanonicalAsync(channel, await LoadCanonicalStreamsAsync(channel), now, exclude);
+
+    // Active streams of all provider-channels sharing this canonical id (cross-provider).
+    private async Task<List<Streams>> LoadCanonicalStreamsAsync(Channels channel)
     {
         var canonical = string.IsNullOrWhiteSpace(channel.CanonicalId) ? null : channel.CanonicalId;
 
-        // All provider-channels sharing this canonical id (cross-provider).
         var channelIds = canonical == null
             ? [channel.ChannelId]
             : await _channelRepository.AsQueryable()
@@ -170,21 +196,30 @@ public class StreamService(
         if (channelIds.Count == 0)
             channelIds = [channel.ChannelId];
 
-        var streams = await _streamRepository.AsQueryable()
+        return await _streamRepository.AsQueryable()
             .Where(s => channelIds.Contains(s.ChannelId) && !s.Inactive && !s.AdminDisabled)
             .ToListAsync();
+    }
+
+    private async Task<IReadOnlyList<StreamCandidate>> OrderCanonicalAsync(
+        Channels channel, List<Streams> streams, DateTime now, HashSet<string> exclude)
+    {
+        var canonical = string.IsNullOrWhiteSpace(channel.CanonicalId) ? null : channel.CanonicalId;
 
         var providers = await LoadProvidersAsync();
 
-        var candidates = streams.Select(s =>
-        {
-            providers.TryGetValue(s.ProviderPublicKey, out var provider);
-            return StreamCandidateFactory.FromDoc(
-                s, canonical ?? channel.ChannelId, provider.Priority, provider.Name, now);
-        });
+        // Streams of an inactive (or deleted) provider are skipped by the factory.
+        var candidates = StreamCandidateFactory.FromActiveProviders(
+            streams, _ => canonical ?? channel.ChannelId, providers, now);
+
+        var index = await _registryService.GetIndexAsync();
+        var curatedCountry = canonical != null && index.ByCanonicalId.TryGetValue(canonical, out var reg)
+            ? reg.CuratedCountry
+            : null;
 
         var context = new StreamSelectionContext
         {
+            CuratedCountry = curatedCountry,
             CurrentStreamId = channel.CurrentStreamId,
             Now = now,
             ExcludeStreamIds = exclude ?? new HashSet<string>(StringComparer.Ordinal)
@@ -193,13 +228,13 @@ public class StreamService(
         return _streamSelector.Order(candidates, context);
     }
 
-    private async Task<Dictionary<string, (string Name, int Priority)>> LoadProvidersAsync()
+    private async Task<Dictionary<string, ProviderInfo>> LoadProvidersAsync()
         => (await _providerRepository.AsQueryable()
                 .Where(p => !p.Inactive)
                 .Select(p => new { p.PublicKey, p.Name, p.Priority })
                 .ToListAsync())
             .GroupBy(p => p.PublicKey)
-            .ToDictionary(g => g.Key, g => (g.First().Name, g.First().Priority));
+            .ToDictionary(g => g.Key, g => new ProviderInfo(g.First().Name, g.First().Priority));
 
     private async Task StickCurrentStreamAsync(StreamCandidate winner)
     {
@@ -215,7 +250,7 @@ public class StreamService(
     }
 
     private async Task RecordFailureAsync(
-        Streams stream, string userKey, StreamFailureReason reason, DateTime now)
+        Streams stream, ReporterIdentity reporter, StreamFailureReason reason, DateTime now)
     {
         // Prune reports older than the decay window, then append this one.
         var recent = (stream.RecentClientFailures ?? [])
@@ -224,16 +259,14 @@ public class StreamService(
 
         recent.Add(new ClientFailureReport
         {
-            UserPublicKey = userKey,
+            UserPublicKey = reporter.Key,
+            PreviousUserPublicKey = reporter.PreviousKey,
             Moment = now,
             Reason = reason.ToString()
         });
 
-        var distinctInWindow = recent
-            .Where(r => r.Moment >= now - StreamFailureConstants.ReportWindow)
-            .Select(r => r.UserPublicKey)
-            .Distinct(StringComparer.Ordinal)
-            .Count();
+        var distinctInWindow = ReporterCounting.Distinct(
+            recent.Where(r => r.Moment >= now - StreamFailureConstants.ReportWindow));
 
         var updateDef = Builders<Streams>.Update
             .Inc(q => q.ClientFailureCount, 1)
@@ -248,8 +281,8 @@ public class StreamService(
         await _streamRepository.FindOneAndUpdateAsync(q => q.Id == stream.Id, updateDef);
     }
 
-    private static List<PlaybackFallback> ToFallbacks(IEnumerable<StreamCandidate> candidates)
-        => candidates.Select(c => new PlaybackFallback
+    private List<PlaybackFallback> ToFallbacks(IEnumerable<StreamCandidate> candidates)
+        => candidates.Select(c => _outputMapper.Fill(new PlaybackFallback
         {
             StreamId = c.StreamId,
             StreamUri = c.StreamUri,
@@ -257,7 +290,7 @@ public class StreamService(
             Referer = c.Referer,
             Quality = c.Quality,
             ProviderName = c.ProviderName
-        }).ToList();
+        }, c)).ToList();
 
     #endregion
 

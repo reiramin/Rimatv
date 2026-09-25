@@ -30,7 +30,7 @@ public class ChannelBasicResult
 }
 
 [JsonConverter(typeof(ChannelWithStreamResultJsonConverter))]
-public class ChannelWithStreamResult
+public class ChannelWithStreamResult : StreamOutputFields
 {
     public string ChannelId { get; set; }
     public string Name { get; set; }
@@ -50,4 +50,16 @@ public class ChannelWithStreamResult
     public string NameFa { get; set; }
     public string CuratedCountry { get; set; }
     public List<FallbackStreamResult> FallbackStreams { get; set; } = [];
+
+    // Ladder winner (may be resolve / youtube / clientResolve / officialPlayer). CurrentStreamUrl and
+    // the flattened stream fields describe the first hls/direct stream only (null when none).
+    public FallbackStreamResult Playback { get; set; }
+
+    // Channel-level playability (§2.2).
+    public string Status { get; set; }
+    public List<string> RequiredRegions { get; set; } = [];
+    public string ErrorCode { get; set; }
+    public string Message { get; set; }
+    public string MessageFa { get; set; }
+    public string VpnHelpUrl { get; set; }
 }

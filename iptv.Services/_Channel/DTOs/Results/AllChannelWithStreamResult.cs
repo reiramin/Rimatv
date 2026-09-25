@@ -1,6 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace iptv.Services._Channel.DTOs.Results;
 
-public class FallbackStreamResult
+public class FallbackStreamResult : StreamOutputFields
 {
     public string StreamId { get; set; }
     public string Url { get; set; }
@@ -10,7 +12,8 @@ public class FallbackStreamResult
     public string ProviderName { get; set; }
 }
 
-public class AllChannelWithStreamResult
+/// <summary>Winner stream fields (type, requiredRegion, …) are flattened via <see cref="StreamOutputFields"/>.</summary>
+public class AllChannelWithStreamResult : StreamOutputFields
 {
     public string ChannelId { get; set; }
     public string Name { get; set; }
@@ -32,4 +35,16 @@ public class AllChannelWithStreamResult
     public string ProviderName { get; set; }
 
     public List<FallbackStreamResult> FallbackStreams { get; set; } = [];
+
+    // Ladder winner; CurrentStreamUrl and the flattened stream fields describe the first hls/direct
+    // stream only (null when none).
+    public FallbackStreamResult Playback { get; set; }
+
+    // Channel-level playability (§2.2).
+    public string Status { get; set; }
+    public List<string> RequiredRegions { get; set; } = [];
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string ErrorCode { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string Message { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string MessageFa { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string VpnHelpUrl { get; set; }
 }

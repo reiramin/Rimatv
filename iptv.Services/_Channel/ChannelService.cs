@@ -1,6 +1,7 @@
 using iptv.Domain.Collections;
 using iptv.Domain.Repositories.Contracts;
 using iptv.Services._Channel.Contracts;
+using iptv.Services._Channel.Playability;
 using iptv.Services._Channel.DTOs.Results;
 using iptv.Services._Channel.DTOs.Updates;
 using iptv.Services._ChannelRegistry;
@@ -25,7 +26,8 @@ public class ChannelService(
     IStreamRepository _streamRepository,
     IIptvProviderRepository _providerRepository,
     IChannelRegistryService _registryService,
-    IStreamSelector _streamSelector)
+    IStreamSelector _streamSelector,
+    IStreamOutputMapper _outputMapper)
     : IChannelService, RegisterMode.IScopedDependency
 {
     private static readonly SemaphoreSlim _liteDataCacheLock = new(1, 1);
@@ -37,7 +39,7 @@ public class ChannelService(
     #region Canonical list endpoints
 
     public async Task<List<AllChannelWithStreamResult>> GetAllUnpagedWithStreamAsync(
-        CancellationToken cancellationToken = default)
+        string country = null, int? page = null, int? size = null, CancellationToken cancellationToken = default)
     {
         var lite = await GetCachedLiteDataAsync(cancellationToken);
         if (lite.Channels.Count == 0)
@@ -51,14 +53,17 @@ public class ChannelService(
 
         foreach (var group in lite.Channels.GroupBy(c => CanonicalKey(c)))
         {
-            var selection = SelectForCanonical(group, streamsByChannel, lite.Providers, now);
+            index.ByCanonicalId.TryGetValue(group.Key, out var reg);
+
+            var selection = SelectForCanonical(group, streamsByChannel, lite.Providers, now, reg?.CuratedCountry);
             if (selection.Winner == null)
                 continue; // never return a canonical channel with no playable stream
 
             var display = PickDisplayChannel(group, lite.Providers);
-            index.ByCanonicalId.TryGetValue(group.Key, out var reg);
+            var status = ComputeStatus(selection.Eligible, reg, display.Country);
+            var current = selection.Current;
 
-            result.Add(new AllChannelWithStreamResult
+            result.Add(FillCurrent(new AllChannelWithStreamResult
             {
                 ChannelId = display.ChannelId,
                 CanonicalId = group.Key,
@@ -66,19 +71,44 @@ public class ChannelService(
                 NameFa = reg?.NameFa,
                 CuratedCountry = reg?.CuratedCountry,
                 ImageUri = display.ImageUri,
-                Country = display.Country,
+                Country = status.Country,
                 Category = reg?.Categories?.FirstOrDefault() ?? display.Category,
-                CurrentStreamUrl = selection.Winner.StreamUri,
-                StreamId = selection.Winner.StreamId,
-                StreamUserAgent = selection.Winner.UserAgent,
-                StreamReferer = selection.Winner.Referer,
-                StreamQuality = selection.Winner.Quality,
-                ProviderName = selection.Winner.ProviderName,
-                FallbackStreams = selection.Fallbacks
-            });
+                CurrentStreamUrl = current?.StreamUri,
+                StreamId = current?.StreamId,
+                StreamUserAgent = current?.UserAgent,
+                StreamReferer = current?.Referer,
+                StreamQuality = current?.Quality,
+                ProviderName = current?.ProviderName,
+                Playback = selection.Playback,
+                FallbackStreams = selection.Fallbacks,
+                Status = status.Status,
+                RequiredRegions = status.RequiredRegions,
+                ErrorCode = status.ErrorCode,
+                Message = status.Message,
+                MessageFa = status.MessageFa,
+                VpnHelpUrl = status.VpnHelpUrl
+            }, current));
         }
 
-        return result.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        return ApplyPaging(result.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase), country, page, size);
+    }
+
+    /// <summary>Optional ISO-country filter and 1-based paging; with none of them the whole list is returned.</summary>
+    internal static List<AllChannelWithStreamResult> ApplyPaging(
+        IEnumerable<AllChannelWithStreamResult> ordered, string country, int? page, int? size)
+    {
+        var wanted = string.IsNullOrWhiteSpace(country) ? null : country.Trim();
+        if (wanted != null)
+            ordered = ordered.Where(r => string.Equals(r.Country, wanted, StringComparison.OrdinalIgnoreCase));
+
+        if (page.HasValue || size.HasValue)
+        {
+            var pageSize = Math.Clamp(size ?? 200, 1, 2000);
+            var pageNumber = Math.Max(page ?? 1, 1);
+            ordered = ordered.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+        }
+
+        return ordered.ToList();
     }
 
     public async Task<List<ChannelWithStreamResult>> GetCuratedListWithStreamAsync(
@@ -111,13 +141,15 @@ public class ChannelService(
             if (group.Count == 0)
                 continue;
 
-            var selection = SelectForCanonical(group, streamsByChannel, lite.Providers, now);
+            var selection = SelectForCanonical(group, streamsByChannel, lite.Providers, now, entry.CuratedCountry);
             if (selection.Winner == null)
                 continue;
 
             var display = PickDisplayChannel(group, lite.Providers);
+            var status = ComputeStatus(selection.Eligible, entry, display.Country);
+            var current = selection.Current;
 
-            result.Add(new ChannelWithStreamResult
+            result.Add(FillCurrent(new ChannelWithStreamResult
             {
                 ChannelId = display.ChannelId,
                 CanonicalId = entry.CanonicalId,
@@ -125,16 +157,23 @@ public class ChannelService(
                 NameFa = entry.NameFa,
                 CuratedCountry = entry.CuratedCountry,
                 ImageUri = display.ImageUri,
-                Country = display.Country,
+                Country = status.Country,
                 Category = entry.Categories?.FirstOrDefault() ?? display.Category,
-                CurrentStreamUrl = selection.Winner.StreamUri,
-                StreamId = selection.Winner.StreamId,
-                UserAgent = selection.Winner.UserAgent,
-                Referer = selection.Winner.Referer,
-                Quality = selection.Winner.Quality,
+                CurrentStreamUrl = current?.StreamUri,
+                StreamId = current?.StreamId,
+                UserAgent = current?.UserAgent,
+                Referer = current?.Referer,
+                Quality = current?.Quality,
+                Playback = selection.Playback,
                 FallbackStreams = selection.Fallbacks,
-                Inactive = false
-            });
+                Inactive = false,
+                Status = status.Status,
+                RequiredRegions = status.RequiredRegions,
+                ErrorCode = status.ErrorCode,
+                Message = status.Message,
+                MessageFa = status.MessageFa,
+                VpnHelpUrl = status.VpnHelpUrl
+            }, current));
         }
 
         return result;
@@ -158,7 +197,7 @@ public class ChannelService(
             if (group.Count == 0)
                 continue;
 
-            var selection = SelectForCanonical(group, streamsByChannel, lite.Providers, now);
+            var selection = SelectForCanonical(group, streamsByChannel, lite.Providers, now, entry.CuratedCountry);
             if (selection.Winner == null)
                 continue;
 
@@ -182,52 +221,57 @@ public class ChannelService(
 
     #region Selection helpers
 
-    private (StreamCandidate Winner, List<FallbackStreamResult> Fallbacks) SelectForCanonical(
-        IEnumerable<ChannelLiteProjection> group,
-        ILookup<string, StreamLiteProjection> streamsByChannel,
-        Dictionary<string, ProviderLite> providers,
-        DateTime now)
+    private sealed record Selection(
+        StreamCandidate Winner,
+        StreamCandidate Current,
+        FallbackStreamResult Playback,
+        List<FallbackStreamResult> Fallbacks,
+        IReadOnlyList<StreamCandidate> Eligible);
+
+    // Legacy stream fields describe the first hls/direct candidate only (or stay empty).
+    private T FillCurrent<T>(T target, StreamCandidate current) where T : StreamOutputFields
+        => current == null ? target : _outputMapper.Fill(target, current);
+
+    private Selection SelectForCanonical(
+            IEnumerable<ChannelLiteProjection> group,
+            ILookup<string, StreamLite> streamsByChannel,
+            Dictionary<string, ProviderInfo> providers,
+            DateTime now,
+            string curatedCountry)
     {
-        var candidates = new List<StreamCandidate>();
         string currentStreamId = null;
+        var streams = new List<StreamLite>();
+        var canonicalByChannel = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var channel in group)
         {
             if (currentStreamId == null && !string.IsNullOrEmpty(channel.CurrentStreamId))
                 currentStreamId = channel.CurrentStreamId;
 
-            foreach (var s in streamsByChannel[channel.ChannelId])
-            {
-                var provider = providers.GetValueOrDefault(s.ProviderPublicKey);
-                candidates.Add(new StreamCandidate
-                {
-                    StreamId = s.StreamId,
-                    ChannelId = s.ChannelId,
-                    CanonicalId = channel.CanonicalId,
-                    ProviderPublicKey = s.ProviderPublicKey,
-                    ProviderName = provider?.Name,
-                    ProviderPriority = provider?.Priority ?? 0,
-                    StreamUri = s.StreamUri,
-                    UserAgent = string.IsNullOrWhiteSpace(s.UserAgent) ? null : s.UserAgent,
-                    Referer = string.IsNullOrWhiteSpace(s.Referer) ? null : s.Referer,
-                    Quality = s.Quality,
-                    QualityRank = s.QualityRank,
-                    IsAdaptive = s.IsAdaptive,
-                    IsHealthy = s.IsHealthy,
-                    ServerProbeUnreliable = s.ServerProbeUnreliable,
-                    RecentReportCount = StreamCandidateFactory.RecentReportCount(s.RecentClientFailures, now),
-                    ClientFailingUntil = s.ClientFailingUntil
-                });
-            }
+            canonicalByChannel[channel.ChannelId] = channel.CanonicalId;
+            streams.AddRange(streamsByChannel[channel.ChannelId]);
         }
 
+        // Streams of an inactive (or deleted) provider are skipped by the factory.
+        var candidates = StreamCandidateFactory.FromActiveProviders(
+            streams, s => canonicalByChannel.GetValueOrDefault(s.ChannelId), providers, now);
+
         var ordered = _streamSelector.Order(candidates,
-            new StreamSelectionContext { CurrentStreamId = currentStreamId, Now = now });
+            new StreamSelectionContext { CurrentStreamId = currentStreamId, Now = now, CuratedCountry = curatedCountry });
 
         if (ordered.Count == 0)
-            return (null, []);
+            return new Selection(null, null, null, [], ordered);
 
-        var fallbacks = ordered.Skip(1).Take(4).Select(c => new FallbackStreamResult
+        return new Selection(
+            ordered[0],
+            PlaybackSelection.PickCurrentStream(ordered),
+            ToStreamResult(ordered[0]),
+            ordered.Skip(1).Take(4).Select(ToStreamResult).ToList(),
+            ordered);
+    }
+
+    private FallbackStreamResult ToStreamResult(StreamCandidate c)
+        => _outputMapper.Fill(new FallbackStreamResult
         {
             StreamId = c.StreamId,
             Url = c.StreamUri,
@@ -235,15 +279,25 @@ public class ChannelService(
             Referer = c.Referer,
             Quality = c.Quality,
             ProviderName = c.ProviderName
-        }).ToList();
+        }, c);
 
-        return (ordered[0], fallbacks);
-    }
+    private ChannelStatusResult ComputeStatus(
+        IEnumerable<StreamCandidate> eligible, ChannelRegistry reg, string channelCountry)
+        => ChannelStatusRules.Compute(new ChannelStatusInput
+        {
+            CuratedCountry = reg?.CuratedCountry,
+            SourceCountry = reg?.SourceCountry,
+            ChannelCountry = channelCountry,
+            Streams = eligible
+                .Select(c => new StatusStreamInput { Type = c.Type, RequiredRegion = c.RequiredRegion })
+                .ToList(),
+            VpnHelpUrl = _outputMapper.VpnHelpUrl
+        });
 
     private static ChannelLiteProjection PickDisplayChannel(
-        IEnumerable<ChannelLiteProjection> group, Dictionary<string, ProviderLite> providers)
+        IEnumerable<ChannelLiteProjection> group, Dictionary<string, ProviderInfo> providers)
         => group
-            .OrderByDescending(c => providers.GetValueOrDefault(c.ProviderPublicKey)?.Priority ?? 0)
+            .OrderByDescending(c => providers.TryGetValue(c.ProviderPublicKey ?? string.Empty, out var p) ? p.Priority : 0)
             .ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
             .First();
 
@@ -477,36 +531,16 @@ public class ChannelService(
         var streams = await _streamRepository
             .AsQueryable()
             .Where(q => !q.Inactive && !q.AdminDisabled)
-            .Select(q => new StreamLiteProjection
-            {
-                StreamId = q.StreamId,
-                ChannelId = q.ChannelId,
-                ProviderPublicKey = q.ProviderPublicKey,
-                StreamUri = q.StreamUri,
-                UserAgent = q.UserAgent,
-                Referer = q.Referer,
-                Quality = q.Quality,
-                QualityRank = q.QualityRank,
-                IsAdaptive = q.IsAdaptive,
-                IsHealthy = q.IsHealthy,
-                ServerProbeUnreliable = q.ServerProbeUnreliable,
-                ClientFailingUntil = q.ClientFailingUntil,
-                RecentClientFailures = q.RecentClientFailures
-            })
+            .Select(StreamLite.Projection)   // slim shape (F20)
             .ToListAsync(cancellationToken);
 
         var providers = (await _providerRepository
                 .AsQueryable()
                 .Where(q => !q.Inactive)
-                .Select(q => new ProviderLite
-                {
-                    PublicKey = q.PublicKey,
-                    Name = q.Name,
-                    Priority = q.Priority
-                })
+                .Select(q => new { q.PublicKey, q.Name, q.Priority })
                 .ToListAsync(cancellationToken))
             .GroupBy(p => p.PublicKey)
-            .ToDictionary(g => g.Key, g => g.First());
+            .ToDictionary(g => g.Key, g => new ProviderInfo(g.First().Name, g.First().Priority));
 
         return new LiteData
         {
@@ -521,8 +555,8 @@ public class ChannelService(
     {
         public DateTime FetchedAt { get; init; }
         public List<ChannelLiteProjection> Channels { get; init; } = [];
-        public List<StreamLiteProjection> Streams { get; init; } = [];
-        public Dictionary<string, ProviderLite> Providers { get; init; } = [];
+        public List<StreamLite> Streams { get; init; } = [];
+        public Dictionary<string, ProviderInfo> Providers { get; init; } = [];
     }
 
     private sealed class ChannelLiteProjection
@@ -535,30 +569,6 @@ public class ChannelService(
         public string Category { get; set; }
         public string CurrentStreamId { get; set; }
         public string ProviderPublicKey { get; set; }
-    }
-
-    private sealed class StreamLiteProjection
-    {
-        public string StreamId { get; set; }
-        public string ChannelId { get; set; }
-        public string ProviderPublicKey { get; set; }
-        public string StreamUri { get; set; }
-        public string UserAgent { get; set; }
-        public string Referer { get; set; }
-        public string Quality { get; set; }
-        public int QualityRank { get; set; }
-        public bool IsAdaptive { get; set; }
-        public bool IsHealthy { get; set; }
-        public bool ServerProbeUnreliable { get; set; }
-        public DateTime? ClientFailingUntil { get; set; }
-        public List<ClientFailureReport> RecentClientFailures { get; set; }
-    }
-
-    private sealed class ProviderLite
-    {
-        public string PublicKey { get; set; }
-        public string Name { get; set; }
-        public int Priority { get; set; }
     }
 
     #endregion

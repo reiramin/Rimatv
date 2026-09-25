@@ -26,4 +26,7 @@ public class ExternalChannel
     // Canonical id hint from the source (e.g. iptv-org id or tvg-id). When absent the
     // sync resolves it via the registry / fallback scheme.
     [JsonIgnore] public string CanonicalIdHint { get; set; }
+
+    // Source file of providers with one file per country, e.g. "famelack:ir" (persisted on Channels).
+    [JsonIgnore] public string SourceTag { get; set; }
 }

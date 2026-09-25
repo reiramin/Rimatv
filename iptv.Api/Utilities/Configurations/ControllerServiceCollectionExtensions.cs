@@ -1,3 +1,4 @@
+using iptv.Services._Common.Settings;
 using Microsoft.Extensions.Options;
 using Utilities.Constants;
 using Utilities.Models.Settings;
@@ -27,7 +28,12 @@ namespace iptv.Api.Utilities.Configurations
             // services.RegisterSetting<EmailSettings>(configuration.GetSection(nameof(EmailSettings)));
 
             services.RegisterSetting<AppSettings>(configuration.GetSection(nameof(AppSettings)));
-            
+
+            services.RegisterSetting<ClientSettings>(configuration.GetSection("Client"));
+            services.RegisterSetting<RelaySettings>(configuration.GetSection("Relay"));
+            services.RegisterSetting<SyncSettings>(configuration.GetSection("Sync"));
+            services.RegisterSetting<ReportSettings>(configuration.GetSection("Reports"));
+            services.RegisterSetting<ProxySettings>(configuration.GetSection("Proxy"));
 
         }
 

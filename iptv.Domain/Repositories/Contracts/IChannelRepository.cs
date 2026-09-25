@@ -12,4 +12,12 @@ public interface IChannelRepository : IMonjoRepository<Channels>
 
     Task<List<Channels>> GetByProviderAsync(string providerPublicKey,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A provider's documents needed by a sync: every ACTIVE one, plus inactive ones whose ExternalId
+    /// is in <paramref name="fetchedExternalIds"/> (so they are reactivated, not inserted twice).
+    /// Deactivated out-of-scope documents are not reloaded on every sync.
+    /// </summary>
+    Task<List<Channels>> GetForSyncAsync(string providerPublicKey, IReadOnlyCollection<string> fetchedExternalIds,
+        CancellationToken cancellationToken = default);
 }

@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="iptv.Tests" />
+    <InternalsVisibleTo Include="Rimatv.Tests" />
   </ItemGroup>
 
   <ItemGroup>
@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="_ChannelRegistry\Seed\channel_registry.seed.json" />
+    <EmbeddedResource Include="_Resolver\resolvers.json" />
   </ItemGroup>
 
 </Project>

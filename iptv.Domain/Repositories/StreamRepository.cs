@@ -32,4 +32,13 @@ public class StreamRepository(IMonjoConnection connection) : MonjoRepository<Str
             .Where(q => !q.Inactive && (q.LastCheckedMoment == null || q.LastCheckedMoment < olderThan))
             .Take(limit)
             .ToListAsync(cancellationToken);
+
+    public async Task<List<Streams>> GetForSyncAsync(string providerPublicKey,
+        IReadOnlyCollection<string> fetchedExternalIds, CancellationToken cancellationToken = default)
+    {
+        var ids = fetchedExternalIds?.ToList() ?? [];
+        return await AsQueryable()
+            .Where(q => q.ProviderPublicKey == providerPublicKey && (!q.Inactive || ids.Contains(q.ExternalId)))
+            .ToListAsync(cancellationToken);
+    }
 }

@@ -6,11 +6,13 @@ using iptv.Domain.Repositories.Contracts;
 using iptv.Services._Canonical;
 using iptv.Services._Channel;
 using iptv.Services._ChannelRegistry.Contracts;
+using iptv.Services._Common.Settings;
 using iptv.Services._IptvNotifier.Contracts;
 using iptv.Services._IptvProvider.Contracts;
 using iptv.Services._IptvProvider.DTOs.Results;
 using iptv.Services._IptvSync.Contracts;
 using iptv.Services._IptvSync.DTOs.Results;
+using iptv.Services._Stream.Urls;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using Utilities.Constants;
@@ -25,6 +27,7 @@ public class IptvSyncService(
     ISyncLogRepository _syncLogRepository,
     IChannelRegistryService _registryService,
     IIptvEventPublisher _eventPublisher,
+    SyncSettings _syncSettings,
     ILogger<IptvSyncService> _logger)
     : IIptvSyncService, RegisterMode.IScopedDependency
 {
@@ -133,14 +136,15 @@ public class IptvSyncService(
         var channelStats = await SyncChannelsAsync(
             provider, fetched, registryIndex, playableStreamsByChannel, cancellationToken);
 
-        // Map external channel key -> local ChannelId (crash-proof against duplicate keys).
-        var localChannelIdByExternalId = (await _channelRepository.GetByProviderAsync(provider.PublicKey, cancellationToken))
+        // Map external channel key -> persisted channel (crash-proof against duplicate keys).
+        var persistedByExternalId = (await _channelRepository.GetForSyncAsync(
+                provider.PublicKey, channelStats.KeptExternalIds, cancellationToken))
             .GroupBy(c => c.ExternalId, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.First().ChannelId, StringComparer.Ordinal);
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
 
         var streamStats = await SyncStreamsAsync(
-            provider, fetched, registryIndex, playableStreamsByChannel, localChannelIdByExternalId,
-            cancellationToken);
+            provider, fetched, registryIndex, playableStreamsByChannel, persistedByExternalId,
+            channelStats, cancellationToken);
 
         var guardTripped = channelStats.GuardTripped || streamStats.GuardTripped;
 
@@ -166,6 +170,22 @@ public class IptvSyncService(
         // Newly synced data changes the user-facing lists.
         ChannelService.InvalidateSharedLiteCache();
 
+        if (channelStats.ScopeDeactivated > 0 || streamStats.ScopeDeactivated > 0)
+            _logger.LogInformation(
+                "Ingest scope Registry: deactivated {Channels} out-of-scope channels and {Streams} of their streams ({Provider}).",
+                channelStats.ScopeDeactivated, streamStats.ScopeDeactivated, provider.Name);
+
+        // Free-tier budget (512 MB RAM): log memory per provider so ingest scopes can be compared.
+        using (var process = System.Diagnostics.Process.GetCurrentProcess())
+            _logger.LogInformation(
+                "SyncMemory provider={Provider} scope={Scope} channels={Channels} streams={Streams} " +
+                "workingSetMB={WorkingSet:F1} liveHeapAfterLastGcMB={LiveHeap:F1} allocatedHeapMB={Heap:F1}",
+                provider.Name, _syncSettings?.IngestScope ?? IngestScope.Registry,
+                channelStats.Total, streamStats.Total,
+                process.WorkingSet64 / 1048576.0,
+                GC.GetGCMemoryInfo().HeapSizeBytes / 1048576.0,
+                GC.GetTotalMemory(false) / 1048576.0);
+
         return MapToResult(provider, syncLog);
     }
 
@@ -178,13 +198,20 @@ public class IptvSyncService(
     {
         var stats = new SyncStats();
 
-        var normalized = fetched.Channels
+        var ingestable = fetched.Channels
             .Where(c => !string.IsNullOrWhiteSpace(c.Id) && !string.IsNullOrWhiteSpace(c.Name))
             .GroupBy(c => c.Id.Trim(), StringComparer.Ordinal)
             .Select(g => g.First())
             .Where(c => playableStreamsByChannel.ContainsKey(c.Id.Trim()))   // >=1 playable stream
             .Where(c => IsIngestable(c, fetched.BlockedChannelIds, registryIndex))
-            .Select(c => NormalizeChannel(provider, c, registryIndex))
+            .Select(c => (External: c, Doc: NormalizeChannel(provider, c, registryIndex)))
+            .ToList();
+
+        // Scope is decided with the NEWLY computed canonical id.
+        var scope = _syncSettings?.IngestScope ?? IngestScope.Registry;
+        var normalized = ingestable
+            .Where(x => IngestScopePolicy.Keep(scope, registryIndex, provider, x.External, x.Doc.CanonicalId))
+            .Select(x => x.Doc)
             .ToList();
 
         stats.Total = normalized.Count;
@@ -192,8 +219,16 @@ public class IptvSyncService(
         var normalizedByExternalId = normalized
             .GroupBy(c => c.ExternalId, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        stats.KeptExternalIds = normalizedByExternalId.Keys.ToHashSet(StringComparer.Ordinal);
 
-        var existing = await _channelRepository.GetByProviderAsync(provider.PublicKey, cancellationToken);
+        var existing = await _channelRepository.GetForSyncAsync(provider.PublicKey, stats.KeptExternalIds, cancellationToken);
+
+        // Registry scope: fetched channels left out of scope are deactivated (not deleted).
+        var plan = IngestScopePolicy.Plan(scope, registryIndex.ByCanonicalId.Count,
+            stats.KeptExternalIds, ingestable.Select(x => x.Doc.ExternalId), existing);
+        stats.OutOfScopeChannelIds = plan.OutOfScopeChannelIds;
+        stats.ScopeDeactivated = plan.ToDeactivate.Count;
+
         var existingByExternalId = existing
             .GroupBy(c => c.ExternalId, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
@@ -221,6 +256,7 @@ public class IptvSyncService(
                 .Set(q => q.Feed, doc.Feed)
                 .Set(q => q.Languages, doc.Languages)
                 .Set(q => q.Labels, doc.Labels)
+                .Set(q => q.SourceTag, doc.SourceTag)
                 .Set(q => q.DataHash, doc.DataHash)
                 .Set(q => q.Inactive, false)                 // AdminDisabled is intentionally NOT touched
                 .Set(q => q.ModifiedMoment, DateTime.UtcNow);
@@ -230,14 +266,22 @@ public class IptvSyncService(
             stats.Updated++;
         }
 
-        // Mass-deactivation guard.
-        var activeExisting = existing.Count(c => !c.Inactive);
+        foreach (var doc in plan.ToDeactivate)
+            writes.Add(new UpdateOneModel<Channels>(
+                Builders<Channels>.Filter.Eq(q => q.Id, doc.Id),
+                Builders<Channels>.Update
+                    .Set(q => q.Inactive, true)
+                    .Set(q => q.ModifiedMoment, DateTime.UtcNow)));
+
+        // Mass-deactivation guard (out-of-scope channels are handled above and not counted).
+        var activeExisting = existing.Count(c => !c.Inactive && !plan.OutOfScopeChannelIds.Contains(c.ChannelId));
         stats.GuardTripped = ShouldSkipDeactivation(normalized.Count, activeExisting);
 
         if (!stats.GuardTripped)
         {
             var removedIds = existing
-                .Where(c => !c.Inactive && !normalizedByExternalId.ContainsKey(c.ExternalId))
+                .Where(c => !c.Inactive && !normalizedByExternalId.ContainsKey(c.ExternalId) &&
+                            !plan.OutOfScopeChannelIds.Contains(c.ChannelId))
                 .Select(c => c.Id)
                 .ToList();
 
@@ -260,23 +304,28 @@ public class IptvSyncService(
         ProviderFetchResult fetched,
         ChannelRegistryIndex registryIndex,
         Dictionary<string, List<ExternalStream>> playableStreamsByChannel,
-        Dictionary<string, string> localChannelIdByExternalId,
+        Dictionary<string, Channels> persistedByExternalId,
+        SyncStats channelStats,
         CancellationToken cancellationToken)
     {
         var stats = new SyncStats();
 
+        var canonicalByExternalId = persistedByExternalId.ToDictionary(
+            kv => kv.Key, kv => kv.Value.CanonicalId, StringComparer.Ordinal);
+
         var normalized = new List<Streams>();
         foreach (var (channelKey, streams) in playableStreamsByChannel)
         {
-            if (!localChannelIdByExternalId.TryGetValue(channelKey, out var localChannelId))
-                continue; // channel was not persisted (filtered out)
+            // Only channels kept by this sync (an out-of-scope channel doc still exists, inactive).
+            if (!channelStats.KeptExternalIds.Contains(channelKey) ||
+                !persistedByExternalId.TryGetValue(channelKey, out var persisted))
+                continue;
 
-            var requiresIrByRegistry = registryIndex.ByCanonicalId
-                .TryGetValue(ResolveCanonicalForKey(channelKey, streams, registryIndex, provider), out var reg)
-                && reg.RequiresIranianIp;
+            var reg = ResolveRegistryEntryForKey(channelKey, canonicalByExternalId, registryIndex);
+            var requiresIrByRegistry = reg?.RequiresIranianIp == true;
 
             foreach (var s in streams)
-                normalized.Add(NormalizeStream(provider, channelKey, localChannelId, s, requiresIrByRegistry));
+                normalized.Add(NormalizeStream(provider, channelKey, persisted, reg, s, requiresIrByRegistry));
         }
 
         // Stream ExternalId already includes the channel key; dedupe crash-proof.
@@ -286,7 +335,8 @@ public class IptvSyncService(
 
         stats.Total = normalizedByExternalId.Count;
 
-        var existing = await _streamRepository.GetByProviderAsync(provider.PublicKey, cancellationToken);
+        var existing = await _streamRepository.GetForSyncAsync(
+            provider.PublicKey, normalizedByExternalId.Keys.ToList(), cancellationToken);
         var existingByExternalId = existing
             .GroupBy(s => s.ExternalId, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
@@ -307,7 +357,7 @@ public class IptvSyncService(
                 existingDoc.ChannelId == doc.ChannelId)
                 continue;
 
-            // Preserve IsHealthy, AdminDisabled and client-failure state on existing streams.
+            // Preserve IsHealthy, AdminDisabled, probe results and client-failure state on existing streams.
             var update = Builders<Streams>.Update
                 .Set(q => q.Name, doc.Name)
                 .Set(q => q.ChannelId, doc.ChannelId)
@@ -321,6 +371,18 @@ public class IptvSyncService(
                 .Set(q => q.Feed, doc.Feed)
                 .Set(q => q.Languages, doc.Languages)
                 .Set(q => q.ServerProbeUnreliable, doc.ServerProbeUnreliable)
+                .Set(q => q.RequiredRegion, doc.RequiredRegion)
+                .Set(q => q.RelayEligible, doc.RelayEligible)
+                .Set(q => q.PageUrl, doc.PageUrl)
+                .Set(q => q.ResolveMethod, doc.ResolveMethod)
+                .Set(q => q.ResolvePattern, doc.ResolvePattern)
+                .Set(q => q.ResolveApiUrl, doc.ResolveApiUrl)
+                .Set(q => q.ResolveBaseUrl, doc.ResolveBaseUrl)
+                .Set(q => q.ResolveHeaders, doc.ResolveHeaders)
+                .Set(q => q.ResolveTtlSeconds, doc.ResolveTtlSeconds)
+                .Set(q => q.IpBound, doc.IpBound)
+                .Set(q => q.PlayerUrl, doc.PlayerUrl)
+                .Set(q => q.Embeddable, doc.Embeddable)
                 .Set(q => q.DataHash, doc.DataHash)
                 .Set(q => q.Inactive, false)
                 .Set(q => q.ModifiedMoment, DateTime.UtcNow);
@@ -330,13 +392,29 @@ public class IptvSyncService(
             stats.Updated++;
         }
 
-        var activeExisting = existing.Count(s => !s.Inactive);
+        // Streams of out-of-scope channels follow their channel (deactivated, not deleted).
+        var outOfScope = existing
+            .Where(s => !s.Inactive && s.ChannelId != null && channelStats.OutOfScopeChannelIds.Contains(s.ChannelId) &&
+                        !normalizedByExternalId.ContainsKey(s.ExternalId))
+            .ToList();
+        foreach (var s in outOfScope)
+            writes.Add(new UpdateOneModel<Streams>(
+                Builders<Streams>.Filter.Eq(q => q.Id, s.Id),
+                Builders<Streams>.Update
+                    .Set(q => q.Inactive, true)
+                    .Set(q => q.ModifiedMoment, DateTime.UtcNow)));
+        stats.ScopeDeactivated = outOfScope.Count;
+        var outOfScopeIds = outOfScope.Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
+
+        var activeExisting = existing.Count(s => !s.Inactive && !outOfScopeIds.Contains(s.Id) &&
+                                                 !channelStats.OutOfScopeChannelIds.Contains(s.ChannelId ?? ""));
         stats.GuardTripped = ShouldSkipDeactivation(normalizedByExternalId.Count, activeExisting);
 
         if (!stats.GuardTripped)
         {
             var removedIds = existing
-                .Where(s => !s.Inactive && !normalizedByExternalId.ContainsKey(s.ExternalId))
+                .Where(s => !s.Inactive && !normalizedByExternalId.ContainsKey(s.ExternalId) &&
+                            !outOfScopeIds.Contains(s.Id))
                 .Select(s => s.Id)
                 .ToList();
 
@@ -383,8 +461,9 @@ public class IptvSyncService(
             Feed = external.Feed,
             Languages = languages,
             Labels = labels,
+            SourceTag = external.SourceTag,
             DataHash = ComputeHash(externalId, canonical, name, country, category, imageUri,
-                external.Feed ?? "", string.Join(",", languages))
+                external.Feed ?? "", string.Join(",", languages), external.SourceTag ?? "")
         };
     }
 
@@ -399,34 +478,55 @@ public class IptvSyncService(
                ?? $"ext:{provider.PublicKey}:{external.Id.Trim()}";
     }
 
-    private static string ResolveCanonicalForKey(
-        string channelKey, List<ExternalStream> streams, ChannelRegistryIndex registryIndex, IptvProviders provider)
+    /// <summary>
+    /// Registry entry of a provider channel, looked up by the CANONICAL id persisted on the channel
+    /// (not by the external key: famelack nanoids and name-matched M3U channels have external keys
+    /// that are not registry ids).
+    /// </summary>
+    internal static ChannelRegistry ResolveRegistryEntryForKey(
+        string channelKey,
+        IReadOnlyDictionary<string, string> canonicalByExternalId,
+        ChannelRegistryIndex registryIndex)
     {
-        // channelKey is the external channel id (iptv-org id / tvg-id / nanoid). Registry lookup by id.
-        return registryIndex.ResolveCanonical(channelKey, null, null) ?? channelKey;
+        if (!canonicalByExternalId.TryGetValue(channelKey, out var canonicalId) ||
+            string.IsNullOrWhiteSpace(canonicalId))
+            return null;
+
+        return registryIndex.ByCanonicalId.GetValueOrDefault(canonicalId);
     }
 
     private static Streams NormalizeStream(
-        IptvProviders provider, string channelKey, string localChannelId,
+        IptvProviders provider, string channelKey, Channels channel, ChannelRegistry reg,
         ExternalStream external, bool requiresIrByRegistry)
     {
-        var url = external.Url.Trim();
+        var rawUrl = external.Url.Trim();
+        var youTubeEmbed = YouTubeUrls.ToEmbedUrl(rawUrl);
+        var url = youTubeEmbed ?? rawUrl;   // official YouTube sources are stored as embed URLs
         var userAgent = external.UserAgent?.Trim() ?? string.Empty;
         var referer = external.Referrer?.Trim() ?? string.Empty;
         var languages = (external.Languages ?? []).Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
 
         var quality = StreamQualityParser.Parse(external.Quality);
-        var type = url.Contains(".m3u8", StringComparison.OrdinalIgnoreCase) ? "hls" : "direct";
-        var isAdaptive = external.IsAdaptive || (quality.IsAuto && type == "hls");
+        var type = external.Type
+                   ?? (youTubeEmbed != null ? StreamTypes.YouTube
+                       : url.Contains(".m3u8", StringComparison.OrdinalIgnoreCase) ? StreamTypes.Hls
+                       : StreamTypes.Direct);
+        var isAdaptive = external.IsAdaptive || (quality.IsAuto && type == StreamTypes.Hls);
 
+        var labels = external.Labels ?? [];
         var serverProbeUnreliable =
             external.RequiresIranianIp ||
             external.GeoBlocked ||
             requiresIrByRegistry ||
             IsIranianOnlyCdn(url) ||
-            external.Labels.Any(l =>
-                l.Contains("IR", StringComparison.OrdinalIgnoreCase) ||
-                l.Contains("Geo", StringComparison.OrdinalIgnoreCase));
+            labels.Any(l => IsIranLabel(l) || IsGeoLabel(l)) ||
+            !StreamTypes.IsStatic(type);   // a HEAD on a page/embed says nothing about playback
+
+        var requiredRegion = ComputeRequiredRegion(
+            provider.Kind, external, url, requiresIrByRegistry,
+            channel?.Country, reg?.SourceCountry, channel?.CanonicalId ?? channelKey);
+
+        var relayEligible = IsRelayEligible(type, requiredRegion, url);
 
         var externalId = !string.IsNullOrWhiteSpace(external.StableExternalId)
             ? external.StableExternalId
@@ -435,7 +535,7 @@ public class IptvSyncService(
         return new Streams
         {
             ProviderPublicKey = provider.PublicKey,
-            ChannelId = localChannelId,
+            ChannelId = channel?.ChannelId,
             ExternalId = externalId,
             Name = string.IsNullOrWhiteSpace(external.Title) ? $"{url} ({quality.Normalized})" : external.Title.Trim(),
             StreamUri = url,
@@ -448,18 +548,88 @@ public class IptvSyncService(
             Feed = external.Feed,
             Languages = languages,
             ServerProbeUnreliable = serverProbeUnreliable,
+            RequiredRegion = requiredRegion,
+            RelayEligible = relayEligible,
+            PageUrl = external.PageUrl,
+            ResolveMethod = external.ResolveMethod,
+            ResolvePattern = external.ResolvePattern,
+            ResolveApiUrl = external.ResolveApiUrl,
+            ResolveBaseUrl = external.ResolveBaseUrl,
+            ResolveHeaders = external.ResolveHeaders,
+            ResolveTtlSeconds = external.ResolveTtlSeconds,
+            IpBound = external.IpBound,
+            PlayerUrl = external.PlayerUrl,
+            Embeddable = external.Embeddable,
             IsHealthy = true,   // neutral/optimistic; the health checker demotes dead streams
             DataHash = ComputeHash(url, userAgent, referer, type, quality.Normalized,
-                quality.Rank.ToString(), isAdaptive.ToString(), serverProbeUnreliable.ToString(), external.Feed ?? "")
+                quality.Rank.ToString(), isAdaptive.ToString(), serverProbeUnreliable.ToString(), external.Feed ?? "",
+                requiredRegion ?? "", relayEligible.ToString(), external.PageUrl ?? "", external.ResolveMethod ?? "",
+                external.ResolvePattern ?? "", external.ResolveApiUrl ?? "", external.ResolveBaseUrl ?? "",
+                string.Join(";", (external.ResolveHeaders ?? []).OrderBy(h => h.Key).Select(h => $"{h.Key}={h.Value}")),
+                external.ResolveTtlSeconds.ToString(), external.IpBound.ToString(), external.PlayerUrl ?? "",
+                external.Embeddable?.ToString() ?? "")
         };
+    }
+
+    /// <summary>
+    /// The one country a stream plays from, or null:
+    /// explicit (resolver) → IR (Iranian CDN, [IR]/Iran label, flags, registry RequiresIranianIp)
+    /// → US for Pluto → the source country for Geo-blocked streams (channel country, then registry
+    /// SourceCountry, then the ".xx" suffix of the iptv-org id, e.g. ARD.de → DE).
+    /// </summary>
+    internal static string ComputeRequiredRegion(
+        ProviderKind providerKind, ExternalStream external, string url, bool requiresIrByRegistry,
+        string channelCountry, string registrySourceCountry, string canonicalId)
+    {
+        if (!string.IsNullOrWhiteSpace(external.RequiredRegion))
+            return NormalizeIso(external.RequiredRegion);
+
+        var labels = external.Labels ?? [];
+
+        if (external.RequiresIranianIp || requiresIrByRegistry || IsIranianOnlyCdn(url) ||
+            labels.Any(IsIranLabel))
+            return "IR";
+
+        if (providerKind == ProviderKind.Pluto)
+            return "US";   // Pluto TV streams are US-only
+
+        if (external.GeoBlocked || labels.Any(IsGeoLabel))
+            return SourceCountry(channelCountry, registrySourceCountry, canonicalId);
+
+        return null;
+    }
+
+    internal static bool IsRelayEligible(string type, string requiredRegion, string url)
+        => requiredRegion == null && type == StreamTypes.Hls && !IsIranianOnlyCdn(url);
+
+    private static string SourceCountry(string channelCountry, string registrySourceCountry, string canonicalId)
+    {
+        foreach (var candidate in new[] { channelCountry, registrySourceCountry })
+            if (candidate?.Trim().Length == 2)
+                return NormalizeIso(candidate);
+
+        // iptv-org ids end with the ISO code: "ARD.de", "TRT1.tr", "ProSieben.de@HD".
+        var id = canonicalId ?? string.Empty;
+        var at = id.IndexOf('@');
+        if (at > 0) id = id[..at];
+        var dot = id.LastIndexOf('.');
+        if (dot > 0 && id.Length - dot - 1 == 2 && id[(dot + 1)..].All(char.IsLetter))
+            return NormalizeIso(id[(dot + 1)..]);
+
+        return null;
+    }
+
+    private static string NormalizeIso(string country)
+    {
+        var c = country.Trim().ToUpperInvariant();
+        return c == "UK" ? "GB" : c;
     }
 
     #endregion
 
     #region Filters
 
-    private static readonly string[] NonPlayableMarkers =
-        ["youtube.com", "youtu.be", "twitch.tv"];
+    private static readonly string[] NonPlayableMarkers = ["twitch.tv"];
 
     /// <summary>
     /// Mass-deactivation guard (§3.8): if a fetch returns 0 items, or fewer than 50% of the
@@ -485,9 +655,29 @@ public class IptvSyncService(
         if (NonPlayableMarkers.Any(m => u.Contains(m, StringComparison.OrdinalIgnoreCase)))
             return false;
 
+        // Official YouTube live sources are kept as embeds (type "youtube"); a YouTube URL that
+        // cannot be expressed as an embed (e.g. an @handle page) is dropped.
+        if (YouTubeUrls.IsYouTubeHost(u))
+            return YouTubeUrls.ToEmbedUrl(u) != null;
+
         return Uri.TryCreate(u, UriKind.Absolute, out var uri) &&
                (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
+
+    /// <summary>
+    /// "[IR]"-style label: the exact token IR (case-insensitive) or a label mentioning Iran.
+    /// A substring match on "IR" would also hit unrelated labels such as "IRIB".
+    /// </summary>
+    internal static bool IsIranLabel(string label)
+    {
+        var l = label?.Trim();
+        return !string.IsNullOrEmpty(l) &&
+               (l.Equals("IR", StringComparison.OrdinalIgnoreCase) ||
+                l.Contains("Iran", StringComparison.OrdinalIgnoreCase));
+    }
+
+    internal static bool IsGeoLabel(string label)
+        => label?.Contains("Geo", StringComparison.OrdinalIgnoreCase) == true;
 
     private static bool IsIngestable(
         ExternalChannel c, HashSet<string> blocked, ChannelRegistryIndex registryIndex)
@@ -506,7 +696,7 @@ public class IptvSyncService(
         return true;
     }
 
-    private static bool IsIranianOnlyCdn(string url)
+    internal static bool IsIranianOnlyCdn(string url)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
             return false;
@@ -606,7 +796,10 @@ public class IptvSyncService(
         public int Inserted { get; set; }
         public int Updated { get; set; }
         public int Deactivated { get; set; }
+        public int ScopeDeactivated { get; set; }
         public bool GuardTripped { get; set; }
+        public HashSet<string> KeptExternalIds { get; set; } = new(StringComparer.Ordinal);
+        public HashSet<string> OutOfScopeChannelIds { get; set; } = new(StringComparer.Ordinal);
     }
 
     #endregion

@@ -106,12 +106,38 @@ public abstract class ProviderFetcherBase(IHttpClientFactory httpClientFactory)
         throw lastError ?? new HttpRequestException($"Failed to fetch '{endpoint}'.");
     }
 
+    // Whole-body read budget (a multiple of the per-request timeout: the files are large).
+    protected static TimeSpan BodyTimeout(IptvProviders provider)
+        => TimeSpan.FromSeconds((provider.FetchTimeoutSeconds > 0 ? provider.FetchTimeoutSeconds : 60) * 2);
+
     protected async Task<T> FetchJsonAsync<T>(
         HttpClient client, IptvProviders provider, string endpoint, CancellationToken cancellationToken)
     {
         using var response = await SendAsync(client, provider, endpoint, cancellationToken);
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         return await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, cancellationToken);
+    }
+
+    /// <summary>
+    /// Deserializes a top-level JSON array item by item straight from the response stream, so a
+    /// large file (iptv-org channels/feeds/logos) is never held as a string or a full list.
+    /// </summary>
+    protected async IAsyncEnumerable<T> FetchJsonItemsAsync<T>(
+        HttpClient client, IptvProviders provider, string endpoint,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        using var response = await SendAsync(client, provider, endpoint, cancellationToken);
+
+        // SendAsync only bounds the time to the response headers; bound reading the body too, so a
+        // server that stalls mid-body cannot hang the sync.
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(BodyTimeout(provider));
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cts.Token);
+
+        await foreach (var item in JsonSerializer.DeserializeAsyncEnumerable<T>(stream, JsonOptions, cts.Token))
+            if (item != null)
+                yield return item;
     }
 
     /// <summary>Streams the response body line by line (used by the M3U parser to avoid double buffering).</summary>

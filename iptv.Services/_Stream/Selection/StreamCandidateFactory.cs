@@ -1,6 +1,10 @@
+using iptv.Services._Stream.Reporting;
 using iptv.Domain.Collections;
 
 namespace iptv.Services._Stream.Selection;
+
+/// <summary>Name and priority of an ACTIVE provider, keyed by provider public key.</summary>
+public readonly record struct ProviderInfo(string Name, int Priority);
 
 /// <summary>Builds <see cref="StreamCandidate"/>s from persisted streams and computes the derived
 /// client-failure signals the selector needs.</summary>
@@ -10,15 +14,52 @@ public static class StreamCandidateFactory
     {
         if (reports == null) return 0;
         var since = now - StreamFailureConstants.ReportWindow;
-        return reports
-            .Where(r => r.Moment >= since && !string.IsNullOrEmpty(r.UserPublicKey))
-            .Select(r => r.UserPublicKey)
-            .Distinct(StringComparer.Ordinal)
-            .Count();
+        return ReporterCounting.Distinct(reports.Where(r => r.Moment >= since));
     }
+
+    /// <summary>
+    /// Builds candidates for streams whose provider is in <paramref name="activeProviders"/>.
+    /// A stream whose provider is inactive or deleted is skipped — never offered with priority 0.
+    /// </summary>
+    internal static List<StreamCandidate> FromActiveProviders(
+        IEnumerable<StreamLite> streams,
+        Func<StreamLite, string> canonicalOf,
+        IReadOnlyDictionary<string, ProviderInfo> activeProviders,
+        DateTime now)
+    {
+        var result = new List<StreamCandidate>();
+        foreach (var s in streams)
+        {
+            if (string.IsNullOrEmpty(s.ProviderPublicKey) ||
+                !activeProviders.TryGetValue(s.ProviderPublicKey, out var provider))
+                continue;
+
+            result.Add(FromLite(s, canonicalOf(s), provider.Priority, provider.Name, now));
+        }
+
+        return result;
+    }
+
+    public static List<StreamCandidate> FromActiveProviders(
+        IEnumerable<Streams> streams,
+        Func<Streams, string> canonicalOf,
+        IReadOnlyDictionary<string, ProviderInfo> activeProviders,
+        DateTime now)
+        => streams
+            .Where(s => !string.IsNullOrEmpty(s.ProviderPublicKey) && activeProviders.ContainsKey(s.ProviderPublicKey))
+            .Select(s =>
+            {
+                var provider = activeProviders[s.ProviderPublicKey];
+                return FromDoc(s, canonicalOf(s), provider.Priority, provider.Name, now);
+            })
+            .ToList();
 
     public static StreamCandidate FromDoc(
         Streams s, string canonicalId, int providerPriority, string providerName, DateTime now)
+        => FromLite(StreamLite.FromDoc(s), canonicalId, providerPriority, providerName, now);
+
+    internal static StreamCandidate FromLite(
+        StreamLite s, string canonicalId, int providerPriority, string providerName, DateTime now)
         => new()
         {
             StreamId = s.StreamId,
@@ -38,6 +79,26 @@ public static class StreamCandidateFactory
             IsHealthy = s.IsHealthy,
             ServerProbeUnreliable = s.ServerProbeUnreliable,
             RecentReportCount = RecentReportCount(s.RecentClientFailures, now),
-            ClientFailingUntil = s.ClientFailingUntil
+            ClientFailingUntil = s.ClientFailingUntil,
+            Type = string.IsNullOrWhiteSpace(s.Type) ? InferType(s.StreamUri) : s.Type,
+            RequiredRegion = string.IsNullOrWhiteSpace(s.RequiredRegion) ? null : s.RequiredRegion,
+            WebCompatible = s.WebCompatible,
+            ProbeStatus = s.ProbeStatus,
+            ProbeMoment = s.ProbeMoment,
+            RelayEligible = s.RelayEligible,
+            PageUrl = s.PageUrl,
+            ResolveMethod = s.ResolveMethod,
+            ResolvePattern = s.ResolvePattern,
+            ResolveApiUrl = s.ResolveApiUrl,
+            ResolveBaseUrl = s.ResolveBaseUrl,
+            ResolveHeaders = s.ResolveHeaders is { Count: > 0 }
+                ? new Dictionary<string, string>(s.ResolveHeaders, StringComparer.OrdinalIgnoreCase)
+                : null,
+            PlayerUrl = s.PlayerUrl,
+            Embeddable = s.Embeddable
         };
+
+    // Streams synced before Type was always set.
+    private static string InferType(string uri)
+        => uri != null && uri.Contains(".m3u8", StringComparison.OrdinalIgnoreCase) ? StreamTypes.Hls : StreamTypes.Direct;
 }
