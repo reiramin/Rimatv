@@ -575,7 +575,7 @@ public class ChannelService(
 
     #region Mappers
 
-    private static System.Linq.Expressions.Expression<Func<Channels, ChannelFilteredResult>> MapToResult()
+    internal static System.Linq.Expressions.Expression<Func<Channels, ChannelFilteredResult>> MapToResult()
         => channel => new ChannelFilteredResult
         {
             ChannelId = channel.ChannelId,
@@ -587,11 +587,12 @@ public class ChannelService(
             Category = channel.Category,
             CurrentStreamId = channel.CurrentStreamId,
             Inactive = channel.Inactive,
+            AdminDisabled = channel.AdminDisabled,
             CreatedMoment = channel.CreatedMoment,
             ModifiedMoment = channel.ModifiedMoment
         };
 
-    private static ChannelFilteredResult MapToResult(Channels channel)
+    internal static ChannelFilteredResult MapToResult(Channels channel)
         => new()
         {
             ChannelId = channel.ChannelId,
@@ -603,6 +604,7 @@ public class ChannelService(
             Category = channel.Category,
             CurrentStreamId = channel.CurrentStreamId,
             Inactive = channel.Inactive,
+            AdminDisabled = channel.AdminDisabled,
             CreatedMoment = channel.CreatedMoment,
             ModifiedMoment = channel.ModifiedMoment
         };

@@ -44,14 +44,15 @@ namespace iptv.Api.Controllers.V1
         public async Task<StreamPlaybackResult> GetPlaybackStreamAsync([FromQuery] GetGlobalIdUpdate channelId)
             => await _streamService.GetPlaybackStreamAsync(channelId);
 
-        // Anonymous: the app has no login. [CustomRateLimit] stays, plus a stricter per-IP limit.
+        // Anonymous: the app has no login. One channel can legitimately need 5-6 reports in a row,
+        // so both limits allow 30 per minute per IP (2-minute lockout once exceeded).
         // Reporters are keyed by SHA256(client IP + daily salt); the raw IP is never stored.
         // [IgnoreLogging]: LoggingMiddleware stores the raw IP and headers, which the anonymous
         // endpoints must never persist.
         [HttpPost("[action]")]
         [IgnoreLogging]
-        [CustomRateLimit]
-        [IpRateLimit(maxRequests: 30, periodSeconds: 600)]
+        [CustomRateLimit(maxAttemptsCount: 30, periodSeconds: 60, lockoutDurationMinutes: 2)]
+        [IpRateLimit(maxRequests: 30, periodSeconds: 60)]
         [SwaggerOperation(Summary = "Report a failing stream; a replacement is selected across all providers of the canonical channel.",
             Tags = ["Stream"])]
         public async Task<StreamReportFailureResult> ReportFailureAsync(StreamReportFailureUpdate update)
@@ -74,14 +75,24 @@ namespace iptv.Api.Controllers.V1
 
         #region Admin Actions
 
+        [HttpPost("[action]")]
+        [Authorize(Permissions.EditStream)]
+        [CustomRateLimit(maxAttemptsCount: 120, periodSeconds: 5 * 60, lockoutDurationMinutes: 2)]
+        [SwaggerOperation(Summary = "Get all streams of a channel, including admin-disabled and inactive ones.",
+            Tags = ["Stream-Admin"])]
+        public async Task<List<StreamAdminResult>> GetByChannelForAdminAsync([FromQuery] GetGlobalIdUpdate channelId)
+            => await _streamService.GetByChannelForAdminAsync(channelId);
+
         [HttpPut("[action]")]
         [Authorize(Permissions.EditStream)]
+        [CustomRateLimit(maxAttemptsCount: 120, periodSeconds: 5 * 60, lockoutDurationMinutes: 2)]
         [SwaggerOperation(Summary = "Activate or deactivate a stream.", Tags = ["Stream-Admin"])]
         public async Task<StreamFilteredResult> ActivateAsync(StreamActivateUpdate update)
             => await _streamService.ActivateAsync(update);
 
         [HttpDelete("[action]")]
         [Authorize(Permissions.DeleteStream)]
+        [CustomRateLimit(maxAttemptsCount: 120, periodSeconds: 5 * 60, lockoutDurationMinutes: 2)]
         [SwaggerOperation(Summary = "Delete a stream.", Tags = ["Stream-Admin"])]
         public async Task<string> DeleteAsync(StreamDeleteUpdate update)
             => await _streamService.DeleteAsync(update);

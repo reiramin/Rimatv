@@ -41,6 +41,31 @@ public class StreamService(
         return streams.Select(MapToResult).ToList();
     }
 
+    public async Task<List<StreamAdminResult>> GetByChannelForAdminAsync(GetGlobalIdUpdate channelId)
+    {
+        var channel = await _channelRepository.GetByChannelIdAsync(channelId.Id)
+                      ?? throw new NotFoundException("Channel not found.");
+
+        // Admin view: no Inactive / AdminDisabled filter.
+        var streams = await _streamRepository
+            .AsQueryable()
+            .Where(q => q.ChannelId == channel.ChannelId)
+            .OrderByDescending(q => q.IsHealthy)
+            .ThenByDescending(q => q.QualityRank)
+            .ToListAsync();
+
+        // Provider names regardless of the provider's own Inactive flag.
+        var providerNames = (await _providerRepository.AsQueryable()
+                .Select(p => new { p.PublicKey, p.Name })
+                .ToListAsync())
+            .GroupBy(p => p.PublicKey)
+            .ToDictionary(g => g.Key, g => g.First().Name);
+
+        return streams.Select(s => MapToAdminResult(
+                s, s.ProviderPublicKey != null ? providerNames.GetValueOrDefault(s.ProviderPublicKey) : null))
+            .ToList();
+    }
+
     public async Task<StreamPlaybackResult> GetPlaybackStreamAsync(GetGlobalIdUpdate channelId)
     {
         var channel = await _channelRepository.GetByChannelIdAsync(channelId.Id)
@@ -296,7 +321,7 @@ public class StreamService(
 
     #region Helpers
 
-    private static StreamFilteredResult MapToResult(Streams stream)
+    internal static StreamFilteredResult MapToResult(Streams stream)
         => new()
         {
             StreamId = stream.StreamId,
@@ -307,7 +332,29 @@ public class StreamService(
             Quality = stream.Quality,
             IsHealthy = stream.IsHealthy,
             Inactive = stream.Inactive,
+            AdminDisabled = stream.AdminDisabled,
             LastCheckedMoment = stream.LastCheckedMoment
+        };
+
+    internal static StreamAdminResult MapToAdminResult(Streams stream, string providerName)
+        => new()
+        {
+            StreamId = stream.StreamId,
+            ChannelId = stream.ChannelId,
+            Name = stream.Name,
+            StreamUri = stream.StreamUri,
+            Type = stream.Type,
+            Quality = stream.Quality,
+            IsHealthy = stream.IsHealthy,
+            Inactive = stream.Inactive,
+            AdminDisabled = stream.AdminDisabled,
+            LastCheckedMoment = stream.LastCheckedMoment,
+            ProviderPublicKey = stream.ProviderPublicKey,
+            ProviderName = providerName,
+            ProbeStatus = stream.ProbeStatus,
+            ProbeMoment = stream.ProbeMoment,
+            RequiredRegion = stream.RequiredRegion,
+            WebCompatible = stream.WebCompatible
         };
 
     #endregion

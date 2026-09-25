@@ -79,18 +79,21 @@ namespace iptv.Api.Controllers.V1
 
         [HttpPost("[action]")]
         [Authorize(Permissions.GetAllChannels)]
+        [CustomRateLimit(maxAttemptsCount: 120, periodSeconds: 5 * 60, lockoutDurationMinutes: 2)]
         [SwaggerOperation(Summary = "Get all channels including inactive ones.", Tags = ["Channel-Admin"])]
         public async Task<MonjoFilteredResult<ChannelFilteredResult>> GetAllForAdminAsync(MonjoQuery query)
             => await _channelService.GetAllForAdminAsync(query);
 
         [HttpPut("[action]")]
         [Authorize(Permissions.EditChannel)]
+        [CustomRateLimit(maxAttemptsCount: 120, periodSeconds: 5 * 60, lockoutDurationMinutes: 2)]
         [SwaggerOperation(Summary = "Activate or deactivate a channel.", Tags = ["Channel-Admin"])]
         public async Task<ChannelFilteredResult> ActivateAsync(ChannelActivateUpdate update)
             => await _channelService.ActivateAsync(update);
 
         [HttpDelete("[action]")]
         [Authorize(Permissions.DeleteChannel)]
+        [CustomRateLimit(maxAttemptsCount: 120, periodSeconds: 5 * 60, lockoutDurationMinutes: 2)]
         [SwaggerOperation(Summary = "Delete a channel.", Tags = ["Channel-Admin"])]
         public async Task<string> DeleteAsync(ChannelDeleteUpdate update)
             => await _channelService.DeleteAsync(update);
