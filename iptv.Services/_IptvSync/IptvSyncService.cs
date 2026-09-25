@@ -137,7 +137,8 @@ public class IptvSyncService(
             provider, fetched, registryIndex, playableStreamsByChannel, cancellationToken);
 
         // Map external channel key -> persisted channel (crash-proof against duplicate keys).
-        var persistedByExternalId = (await _channelRepository.GetByProviderAsync(provider.PublicKey, cancellationToken))
+        var persistedByExternalId = (await _channelRepository.GetForSyncAsync(
+                provider.PublicKey, channelStats.KeptExternalIds, cancellationToken))
             .GroupBy(c => c.ExternalId, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
 
@@ -220,7 +221,7 @@ public class IptvSyncService(
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         stats.KeptExternalIds = normalizedByExternalId.Keys.ToHashSet(StringComparer.Ordinal);
 
-        var existing = await _channelRepository.GetByProviderAsync(provider.PublicKey, cancellationToken);
+        var existing = await _channelRepository.GetForSyncAsync(provider.PublicKey, stats.KeptExternalIds, cancellationToken);
 
         // Registry scope: fetched channels left out of scope are deactivated (not deleted).
         var plan = IngestScopePolicy.Plan(scope, registryIndex.ByCanonicalId.Count,
@@ -334,7 +335,8 @@ public class IptvSyncService(
 
         stats.Total = normalizedByExternalId.Count;
 
-        var existing = await _streamRepository.GetByProviderAsync(provider.PublicKey, cancellationToken);
+        var existing = await _streamRepository.GetForSyncAsync(
+            provider.PublicKey, normalizedByExternalId.Keys.ToList(), cancellationToken);
         var existingByExternalId = existing
             .GroupBy(s => s.ExternalId, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);

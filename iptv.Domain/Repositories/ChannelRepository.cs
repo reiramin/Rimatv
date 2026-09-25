@@ -22,4 +22,13 @@ public class ChannelRepository(IMonjoConnection connection) : MonjoRepository<Ch
     public async Task<List<Channels>> GetByProviderAsync(string providerPublicKey,
         CancellationToken cancellationToken = default)
         => await AsQueryable().Where(q => q.ProviderPublicKey == providerPublicKey).ToListAsync(cancellationToken);
+
+    public async Task<List<Channels>> GetForSyncAsync(string providerPublicKey,
+        IReadOnlyCollection<string> fetchedExternalIds, CancellationToken cancellationToken = default)
+    {
+        var ids = fetchedExternalIds?.ToList() ?? [];
+        return await AsQueryable()
+            .Where(q => q.ProviderPublicKey == providerPublicKey && (!q.Inactive || ids.Contains(q.ExternalId)))
+            .ToListAsync(cancellationToken);
+    }
 }
