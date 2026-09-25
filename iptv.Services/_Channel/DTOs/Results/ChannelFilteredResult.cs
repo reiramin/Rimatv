@@ -14,6 +14,7 @@ public class ChannelFilteredResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string CurrentStreamId { get; set; }
     public bool Inactive { get; set; }
+    public bool AdminDisabled { get; set; }
     public DateTime CreatedMoment { get; set; }
     public DateTime? ModifiedMoment { get; set; }
 }

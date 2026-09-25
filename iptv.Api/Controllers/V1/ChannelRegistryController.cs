@@ -21,35 +21,35 @@ namespace iptv.Api.Controllers.V1
     {
         [HttpPost("[action]")]
         [Authorize(Permissions.GetAllChannels)]
-        [CustomRateLimit]
+        [CustomRateLimit(maxAttemptsCount: 120, periodSeconds: 5 * 60, lockoutDurationMinutes: 2)]
         [SwaggerOperation(Summary = "Get channel registry entries (filtered).", Tags = ["ChannelRegistry-Admin"])]
         public async Task<MonjoFilteredResult<ChannelRegistryResult>> GetAllAsync(MonjoQuery query)
             => await _registryService.GetAllAsync(query);
 
         [HttpPost("[action]")]
         [Authorize(Permissions.EditChannel)]
-        [CustomRateLimit]
+        [CustomRateLimit(maxAttemptsCount: 120, periodSeconds: 5 * 60, lockoutDurationMinutes: 2)]
         [SwaggerOperation(Summary = "Create a channel registry entry.", Tags = ["ChannelRegistry-Admin"])]
         public async Task<ChannelRegistryResult> CreateAsync(ChannelRegistryCreateUpdate update)
             => await _registryService.CreateAsync(update);
 
         [HttpPut("[action]")]
         [Authorize(Permissions.EditChannel)]
-        [CustomRateLimit]
+        [CustomRateLimit(maxAttemptsCount: 120, periodSeconds: 5 * 60, lockoutDurationMinutes: 2)]
         [SwaggerOperation(Summary = "Edit a channel registry entry.", Tags = ["ChannelRegistry-Admin"])]
         public async Task<ChannelRegistryResult> EditAsync(ChannelRegistryEditUpdate update)
             => await _registryService.EditAsync(update);
 
         [HttpPut("[action]")]
         [Authorize(Permissions.EditChannel)]
-        [CustomRateLimit]
+        [CustomRateLimit(maxAttemptsCount: 120, periodSeconds: 5 * 60, lockoutDurationMinutes: 2)]
         [SwaggerOperation(Summary = "Activate or deactivate a channel registry entry.", Tags = ["ChannelRegistry-Admin"])]
         public async Task<ChannelRegistryResult> ActivateAsync(ChannelRegistryActivateUpdate update)
             => await _registryService.ActivateAsync(update);
 
         [HttpDelete("[action]")]
         [Authorize(Permissions.DeleteChannel)]
-        [CustomRateLimit]
+        [CustomRateLimit(maxAttemptsCount: 120, periodSeconds: 5 * 60, lockoutDurationMinutes: 2)]
         [SwaggerOperation(Summary = "Delete a channel registry entry.", Tags = ["ChannelRegistry-Admin"])]
         public async Task<string> DeleteAsync([FromQuery] GetGlobalIdUpdate canonicalId)
             => await _registryService.DeleteAsync(canonicalId);

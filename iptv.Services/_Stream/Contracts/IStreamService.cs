@@ -9,6 +9,8 @@ public interface IStreamService
 {
     Task<List<StreamFilteredResult>> GetByChannelAsync(GetGlobalIdUpdate channelId);
 
+    Task<List<StreamAdminResult>> GetByChannelForAdminAsync(GetGlobalIdUpdate channelId);
+
     Task<StreamPlaybackResult> GetPlaybackStreamAsync(GetGlobalIdUpdate channelId);
 
     Task<StreamReportFailureResult> ReportStreamFailureAsync(
