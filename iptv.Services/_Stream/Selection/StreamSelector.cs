@@ -21,6 +21,7 @@ public class StreamSelector : IStreamSelector, RegisterMode.ISingletonDependency
         return eligible
             .OrderBy(c => ProbeClass(c, context, now))                // 1. probe: ok → unverified → region
             .ThenBy(c => RegionRank(c, context))                      // 2. iran: IR first; others: regional last
+            .ThenBy(c => PlayedRank(c, now))                          // 2a. actually played (fresh ok) first
             .ThenBy(c => TypeRank(c.Type))                            // 2b. static → resolve → youtube → clientResolve → officialPlayer
             .ThenBy(c => WebCompatibleRank(c.WebCompatible))          // 3. web-compatible first
             .ThenBy(c => c.RecentReportCount)                         // 4. fewer recent client reports first
@@ -93,6 +94,13 @@ public class StreamSelector : IStreamSelector, RegisterMode.ISingletonDependency
         StreamTypes.OfficialPlayer => 4,
         _ => 0 // hls / direct
     };
+
+    /// <summary>
+    /// 0 = a fresh ok probe (the stream actually played), else 1. Only splits probe class 0 on an
+    /// <c>iran</c> channel: an IR stream that played beats one the abroad probe could only call region.
+    /// </summary>
+    internal static int PlayedRank(StreamCandidate c, DateTime now)
+        => IsProbe(c, StreamProbeStatus.Ok, ProbeWindows.DeepProbe, now) ? 0 : 1;
 
     private static int RegionRank(StreamCandidate c, StreamSelectionContext context)
     {
